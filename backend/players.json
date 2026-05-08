@@ -1,0 +1,48 @@
+[
+    {
+        "name": "TCT",
+        "weapon": "sword",
+        "armor": "light",
+        "strategy": {
+            "target_rule": "counter",
+            "camp_until": 5
+        }
+    },
+    {
+        "name": "NVT",
+        "weapon": "bow",
+        "armor": "light"
+    },
+    {
+        "name": "HTH",
+        "weapon": "magic",
+        "armor": "light"
+    },
+    {
+        "name": "NNT",
+        "weapon": "bow",
+        "shield": "light",
+        "strategy": {
+            "target_rule": "lowest_hp",
+            "camp_until": 5
+        }
+    },
+    {
+        "name": "Tr\u1ea7n Cao Trung",
+        "weapon": "bow",
+        "shield": "steel_shield",
+        "strategy": {
+            "target_rule": "lowest_hp",
+            "camp_until": 3
+        }
+    },
+    {
+        "name": "Tr\u1ea7n V\u0103n Th\u00e0nh",
+        "weapon": "bow",
+        "shield": "steel_shield",
+        "strategy": {
+            "target_rule": "closest",
+            "camp_until": 99
+        }
+    }
+]
