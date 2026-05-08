@@ -6,41 +6,114 @@
             "weapon": "spear",
             "shield": "buckler",
             "strategy": {
-                "target_rule": "counter",
-                "camp_until": 2
+                "target_rule": "lowest_hp",
+                "camp_until": 3
             }
-        },
-        {
-            "name": "NVT",
-            "password": "12345",
-            "weapon": "sword",
-            "shield": "steel_shield",
-            "strategy": null
         },
         {
             "name": "NNT",
             "password": "12345",
             "weapon": "bow",
-            "shield": "wood_shield",
-            "strategy": {
-                "target_rule": "counter",
-                "camp_until": 5
-            }
-        },
-        {
-            "name": "HTH",
-            "password": "12345",
-            "weapon": "hammer",
-            "shield": "steel_shield",
+            "shield": "buckler",
             "strategy": null
         },
         {
-            "name": "DXH",
-            "password": "12345",
+            "name": "Bot_Yasuo",
+            "password": "bot",
+            "weapon": "dagger",
+            "shield": "buckler",
+            "strategy": {
+                "target_rule": "closest",
+                "camp_until": 3
+            }
+        },
+        {
+            "name": "Bot_Garen",
+            "password": "bot",
             "weapon": "bow",
             "shield": "magic_ward",
             "strategy": {
                 "target_rule": "highest_hp",
+                "camp_until": 99
+            }
+        },
+        {
+            "name": "Bot_Ashe",
+            "password": "bot",
+            "weapon": "bow",
+            "shield": "wood_shield",
+            "strategy": {
+                "target_rule": "lowest_hp",
+                "camp_until": 5
+            }
+        },
+        {
+            "name": "Bot_Ahri",
+            "password": "bot",
+            "weapon": "sword",
+            "shield": "buckler",
+            "strategy": {
+                "target_rule": "lowest_hp",
+                "camp_until": 5
+            }
+        },
+        {
+            "name": "Bot_Darius",
+            "password": "bot",
+            "weapon": "sword",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "closest",
+                "camp_until": 2
+            }
+        },
+        {
+            "name": "Bot_Zed",
+            "password": "bot",
+            "weapon": "dagger",
+            "shield": "tower_shield",
+            "strategy": {
+                "target_rule": "lowest_hp",
+                "camp_until": 2
+            }
+        },
+        {
+            "name": "Bot_Lux",
+            "password": "bot",
+            "weapon": "sword",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 5
+            }
+        },
+        {
+            "name": "Bot_LeeSin",
+            "password": "bot",
+            "weapon": "bow",
+            "shield": "buckler",
+            "strategy": {
+                "target_rule": "closest",
+                "camp_until": 99
+            }
+        },
+        {
+            "name": "Bot_Vayne",
+            "password": "bot",
+            "weapon": "spear",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "lowest_hp",
+                "camp_until": 3
+            }
+        },
+        {
+            "name": "Bot_Malphite",
+            "password": "bot",
+            "weapon": "spear",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "closest",
                 "camp_until": 99
             }
         }
