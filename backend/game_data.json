@@ -1,5 +1,50 @@
 {
-    "players": [],
+    "players": [
+        {
+            "name": "TCT",
+            "password": "12345",
+            "weapon": "spear",
+            "shield": "buckler",
+            "strategy": {
+                "target_rule": "counter",
+                "camp_until": 2
+            }
+        },
+        {
+            "name": "NVT",
+            "password": "12345",
+            "weapon": "sword",
+            "shield": "steel_shield",
+            "strategy": null
+        },
+        {
+            "name": "NNT",
+            "password": "12345",
+            "weapon": "bow",
+            "shield": "wood_shield",
+            "strategy": {
+                "target_rule": "counter",
+                "camp_until": 5
+            }
+        },
+        {
+            "name": "HTH",
+            "password": "12345",
+            "weapon": "hammer",
+            "shield": "steel_shield",
+            "strategy": null
+        },
+        {
+            "name": "DXH",
+            "password": "12345",
+            "weapon": "bow",
+            "shield": "magic_ward",
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 99
+            }
+        }
+    ],
     "config": {
         "title": "\u0110\u1ea4U TR\u01af\u1edcNG DEV",
         "bg": "#0f291e",
