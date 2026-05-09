@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
+// --- SFX AUDIO ENGINE ---
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -55,10 +56,18 @@ class SoundEngine {
 }
 const sfx = new SoundEngine();
 
+// ĐÃ FIX: CHỌN CHÍNH XÁC GIỌNG TIẾNG VIỆT CHUẨN
 const getVietnameseVoice = () => {
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
-  return voices.find(v => v.lang === 'vi-VN' || v.lang === 'vi_VN' || v.name.toLowerCase().includes('vietnamese'));
+  
+  // Ưu tiên 1: Google Tiếng Việt (có sẵn trên trình duyệt Chrome)
+  let v = voices.find(voice => voice.name === "Google Tiếng Việt");
+  if (v) return v;
+  
+  // Ưu tiên 2: Bất kỳ giọng nào có mã vi-VN, vi_VN hoặc chứa chữ Vietnamese
+  v = voices.find(voice => voice.lang.includes('vi') || voice.name.toLowerCase().includes('vietnamese'));
+  return v;
 };
 
 class VoiceEngine {
@@ -79,6 +88,7 @@ class VoiceEngine {
     const text = type === 'attack' ? attackShouts[Math.floor(Math.random()*attackShouts.length)] : hurtScreams[Math.floor(Math.random()*hurtScreams.length)];
     const u = new SpeechSynthesisUtterance(text);
     
+    // Gắn giọng Việt Nam vào
     const viVoice = getVietnameseVoice();
     if (viVoice) u.voice = viVoice;
     u.lang = 'vi-VN';
@@ -114,8 +124,14 @@ export default function App() {
   const[globalHostPwd, setGlobalHostPwd] = useState('');
   const spokenLogs = useRef(new Set());
 
+  // Kích hoạt Load Voices trên trình duyệt ngay khi vừa vào trang
   useEffect(() => {
-    if(window.speechSynthesis) window.speechSynthesis.getVoices();
+    if(window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.getVoices();
+    }
   },[]);
 
   useEffect(() => {
@@ -159,10 +175,13 @@ export default function App() {
   if (!started) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-900 text-white flex-col">
-        <h1 className="text-4xl font-bold mb-8 text-yellow-500">AUTO-BATTLER: BATTLE ROYALE</h1>
+        <h1 className="text-4xl font-bold mb-8 text-yellow-500 tracking-widest drop-shadow-[0_0_15px_rgba(234,179,8,0.8)]">AUTO-BATTLER: BATTLE ROYALE</h1>
         <button onClick={handleStartGameClick} className="bg-green-600 hover:bg-green-500 text-2xl font-bold py-4 px-10 rounded-full animate-bounce shadow-[0_0_20px_rgba(34,197,94,0.5)]">
-          BẤM VÀO ĐÂY ĐỂ VÀO GAME (Cho phép Audio)
+          BẤM VÀO ĐÂY ĐỂ VÀO GAME (Cấp quyền Audio)
         </button>
+        <p className="mt-8 text-gray-500 text-sm max-w-lg text-center">
+          * Lưu ý: Nếu MC hoặc Nhân vật nói tiếng Anh/không nói được, trình duyệt của bạn đang thiếu Giọng đọc Tiếng Việt. Vui lòng sử dụng trình duyệt <b>Google Chrome</b> hoặc Cài gói ngôn ngữ Speech-to-Text Tiếng Việt trong Cài đặt Windows/MacOS.
+        </p>
       </div>
     );
   }
@@ -200,7 +219,6 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
   const[localConfig, setLocalConfig] = useState(gameState.config);
   
-  // Đọc Data từ config của Backend
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
 
@@ -231,18 +249,20 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto">
+      
+      {/* 1. ĐĂNG KÝ */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-blue-400">1. Đăng ký tham gia</h2>
         <form onSubmit={handleRegister} className="flex flex-col gap-3">
-          <input className="p-2 bg-gray-700 rounded" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
-          <input className="p-2 bg-gray-700 rounded" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
+          <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
+          <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
           
-          <label className="text-sm text-gray-400 mt-2">Vũ Khí</label>
+          <label className="text-sm text-gray-400 mt-2">Chọn Vũ Khí</label>
           <select className="p-2 bg-gray-700 rounded" value={weapon} onChange={e=>setWeapon(e.target.value)}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
 
-          <label className="text-sm text-gray-400 mt-2">Khiên</label>
+          <label className="text-sm text-gray-400 mt-2">Chọn Khiên</label>
           <select className="p-2 bg-gray-700 rounded" value={shield} onChange={e=>setShield(e.target.value)}>
             {Object.entries(SHIELDS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
@@ -260,48 +280,100 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
         </div>
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
-        <h2 className="text-xl font-bold mb-4 text-yellow-400">📖 Bách khoa toàn thư</h2>
-        <div className="text-sm space-y-4">
+      {/* 2. BÁCH KHOA TOÀN THƯ (ĐÃ MỞ RỘNG SIÊU CHI TIẾT) */}
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-[600px] overflow-y-auto custom-scrollbar">
+        <h2 className="text-2xl font-bold mb-4 text-yellow-400 border-b border-gray-600 pb-2">📖 Bách Khoa Cờ Nhân Phẩm</h2>
+        <div className="text-sm space-y-6">
+          
+          {/* Tốc độ */}
+          <div className="bg-gray-700 p-3 rounded shadow-inner">
+            <h3 className="font-bold text-green-400 text-base mb-1">🏃 Tốc Độ Di Chuyển</h3>
+            <p>Tốc độ của nhân vật phụ thuộc vào Độ Nặng. <br/><b>Tốc độ = Base Speed - (Nặng Vũ Khí + Nặng Khiên).</b><br/>Người mang Búa + Khiên thép sẽ lết như rùa. Cầm Dao + Khiên nhỏ sẽ chạy nhanh như xe đua.</p>
+          </div>
+
+          {/* Cân bằng Khắc Hệ */}
           <div>
-            <h3 className="font-bold text-red-400 border-b border-gray-600 pb-1">Vũ Khí</h3>
-            <ul className="mt-2 space-y-1">
-              {Object.values(WEAPONS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đam {v.dmg} | Hồi {v.cd} | Tầm {v.r} | Nặng {v.weight}</li>)}
+            <h3 className="font-bold text-red-400 text-base border-b border-gray-600 pb-1 mb-2">⚔️ Sát Thương & Khắc Hệ (Gây X2 Sát thương)</h3>
+            <ul className="list-disc pl-4 space-y-1 text-gray-300">
+              <li><b className="text-white">Kiếm / Dao / Cung</b> chém rách <b className="text-yellow-500">Khiên Gỗ</b>.</li>
+              <li><b className="text-white">Giáo / Búa</b> đập nát <b className="text-gray-400">Khiên Thép</b>.</li>
+              <li><b className="text-white">Kiếm / Giáo / Cung</b> xuyên thủng <b className="text-blue-300">Khiên Nhỏ</b>.</li>
+              <li className="text-red-300">⚠️ Ngoại lệ: Cung tiễn bắn vào Khiên Thép bị giảm 50% Sát thương gốc trước khi tính Giáp!</li>
             </ul>
           </div>
+
+          {/* AI Mục Tiêu */}
           <div>
-            <h3 className="font-bold text-blue-400 border-b border-gray-600 pb-1">Khiên (Armor)</h3>
-            <ul className="mt-2 space-y-1">
-              {Object.values(SHIELDS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đỡ {v.b} đam | Nặng {v.weight}</li>)}
+            <h3 className="font-bold text-purple-400 text-base border-b border-gray-600 pb-1 mb-2">🎯 Trí Tuệ AI: Cài Đặt Mục Tiêu</h3>
+            <ul className="list-disc pl-4 space-y-2 text-gray-300">
+              <li><b className="text-white">Gần nhất:</b> Gặp ai đánh đó. Rất dễ bị thả diều hoặc đánh nhầm xe tăng.</li>
+              <li><b className="text-white">Yếu HP nhất:</b> Đi săn lùng kẻ ít máu nhất map. Cực kỳ nguy hiểm để KS (cướp) mạng.</li>
+              <li><b className="text-white">Trâu HP nhất:</b> Lựa thằng nhiều máu nhất để bào. Thích hợp cho class Sát thủ đâm thọt xe tăng.</li>
+              <li><b className="text-white">Kẻ bị khắc hệ:</b> Radar thông minh tự tìm kẻ mang Khiên bị vũ khí của mình khắc chế để gây x2 Đam. Nếu không có, sẽ đánh kẻ gần nhất.</li>
             </ul>
           </div>
-          <div className="bg-gray-700 p-3 rounded">
-            <p>🏃 <b>Tốc chạy:</b> Càng nặng đi càng chậm.</p>
-            <p>💥 <b>Khắc hệ (Đam x2):</b> Dao/Kiếm/Cung {`->`} Gỗ | Giáo/Búa {`->`} Thép | Kiếm/Giáo/Cung {`->`} Nhỏ.</p>
-            <p className="text-red-300">⚠️ Ngoại lệ: Cung bắn Khiên Thép bị giảm 50% Đam gốc.</p>
+
+          {/* AI Sinh Tồn */}
+          <div>
+            <h3 className="font-bold text-teal-400 text-base border-b border-gray-600 pb-1 mb-2">🏃 Trí Tuệ AI: Cài Đặt Sinh Tồn (Núp Lùm)</h3>
+            <p className="mb-2 text-gray-300">Game có hệ thống Vòng Bo đỏ thu hẹp dần (Trừ 8 Máu/giây nếu đứng ngoài bo).</p>
+            <ul className="list-disc pl-4 space-y-2 text-gray-300">
+              <li><b className="text-white">Khô máu:</b> Luôn lao lên phía trước tìm kẻ địch để đánh. Máu giấy rất dễ bay màu sớm.</li>
+              <li><b className="text-white">Núp tới Top 5/3/2:</b> Nhân vật sẽ né tránh giao tranh. Nếu thấy địch ở gần, lập tức bỏ chạy. <br/><b className="text-yellow-400">Đặc biệt (Tank Bo):</b> Nếu máu của nhân vật đang RẤT CAO, chúng sẽ tự động quyết định <b>đứng ngoài Bo cắn răng chịu mất máu</b> để không phải dính líu đến cuộc tàn sát bên trong Bo. Chỉ chạy vào Bo khi máu rớt xuống mức nguy hiểm.</li>
+            </ul>
           </div>
+
+          {/* Chỉ số chi tiết */}
+          <div>
+            <h3 className="font-bold text-yellow-500 text-base border-b border-gray-600 pb-1 mb-2">📊 Bảng Chỉ Số Vũ Khí & Khiên</h3>
+            <ul className="mt-2 space-y-2 text-gray-300">
+              {Object.values(WEAPONS).map(v => <li key={v.n} className="bg-gray-700 p-2 rounded">{v.e} <b className="text-white">{v.n}</b>: Đam <b>{v.dmg}</b> | Hồi chiêu <b>{v.cd}</b> | Tầm xa <b>{v.r}</b> | Nặng <b>{v.weight}</b></li>)}
+            </ul>
+            <ul className="mt-4 space-y-2 text-gray-300">
+              {Object.values(SHIELDS).map(v => <li key={v.n} className="bg-gray-700 p-2 rounded">{v.e} <b className="text-white">{v.n}</b>: Giảm <b>{v.b}</b> Sát thương | Nặng <b>{v.weight}</b></li>)}
+            </ul>
+          </div>
+
         </div>
       </div>
 
+      {/* 3. HOST PANEL */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-purple-400">👑 Bảng điều khiển Host</h2>
-        <input className="p-2 w-full bg-gray-700 rounded mb-4" placeholder="Nhập pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host (dev123) để mở khóa" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === 'dev123' && (
           <div className="flex flex-col gap-3 animate-fade-in">
+            <label className="text-xs text-gray-400 -mb-2">Tên Phòng</label>
             <input className="p-2 bg-gray-700 rounded" value={localConfig.room_name} onChange={e=>setLocalConfig({...localConfig, room_name: e.target.value})} placeholder="Tên phòng" />
-            <div className="flex gap-2">
-              <input type="number" className="p-2 bg-gray-700 rounded w-1/2" value={localConfig.map_width} onChange={e=>setLocalConfig({...localConfig, map_width: parseInt(e.target.value)})} title="Rộng Map"/>
-              <input type="number" className="p-2 bg-gray-700 rounded w-1/2" value={localConfig.map_height} onChange={e=>setLocalConfig({...localConfig, map_height: parseInt(e.target.value)})} title="Dài Map"/>
+            
+            {/* ĐÃ FIX: LABEL HIỂN THỊ CHIỀU RỘNG/CHIỀU DÀI RÕ RÀNG */}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="text-xs text-gray-400 block mb-1">Chiều Ngang Map (Width)</label>
+                <input type="number" className="p-2 bg-gray-700 rounded w-full" value={localConfig.map_width} onChange={e=>setLocalConfig({...localConfig, map_width: parseInt(e.target.value)})} title="Chiều rộng Pixel"/>
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400 block mb-1">Chiều Dọc Map (Height)</label>
+                <input type="number" className="p-2 bg-gray-700 rounded w-full" value={localConfig.map_height} onChange={e=>setLocalConfig({...localConfig, map_height: parseInt(e.target.value)})} title="Chiều cao Pixel"/>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <input type="color" className="p-1 bg-gray-700 rounded w-1/2 h-10 cursor-pointer" value={localConfig.bg_color} onChange={e=>setLocalConfig({...localConfig, bg_color: e.target.value})} title="Màu nền" />
-              <select className="p-2 bg-gray-700 rounded w-1/2" value={localConfig.language} onChange={e=>setLocalConfig({...localConfig, language: e.target.value})}>
-                <option value="vi">Tiếng Việt</option><option value="en">English</option>
-              </select>
+
+            <div className="flex gap-4 mt-2">
+              <div className="flex-1">
+                <label className="text-xs text-gray-400 block mb-1">Màu Nền Trong Bo</label>
+                <input type="color" className="p-1 bg-gray-700 rounded w-full h-10 cursor-pointer" value={localConfig.bg_color} onChange={e=>setLocalConfig({...localConfig, bg_color: e.target.value})} />
+              </div>
+              <div className="flex-1">
+                 <label className="text-xs text-gray-400 block mb-1">Giọng Đọc MC</label>
+                <select className="p-2 bg-gray-700 rounded w-full h-10" value={localConfig.language} onChange={e=>setLocalConfig({...localConfig, language: e.target.value})}>
+                  <option value="vi">Tiếng Việt</option><option value="en">English</option>
+                </select>
+              </div>
             </div>
-            <button onClick={saveConfig} className="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold">💾 LƯU CẤU HÌNH</button>
-            <p className="text-xs text-center text-gray-400">* Để thay đổi Máu (HP), Tầm Đánh, Đam... hãy edit file `backend_data/game_config.json` rồi về sảnh.</p>
+            
+            <button onClick={saveConfig} className="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold mt-2">💾 LƯU CẤU HÌNH UI</button>
+            <p className="text-xs text-center text-gray-400">* Để thay đổi Máu (HP), Tầm Đánh, Đam... hãy edit file `backend_data/game_config.json`.</p>
             <hr className="border-gray-600 my-2" />
             
             <div className="flex gap-2">
@@ -319,9 +391,9 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
 // --- PHASE 2: STRATEGY ---
 function Phase2({ gameState, hostPwd, setHostPwd }) {
-  const [name, setName] = useState('');
+  const[name, setName] = useState('');
   const[pwd, setPwd] = useState('');
-  const [targetRule, setTargetRule] = useState('nearest');
+  const[targetRule, setTargetRule] = useState('nearest');
   const[campRule, setCampRule] = useState('attack');
 
   const saveTactics = async (e) => {
@@ -341,7 +413,7 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 
   return (
     <div className="flex flex-col w-full items-center p-8 overflow-y-auto">
-      <h2 className="text-4xl font-bold mb-2 text-red-500">CHUẨN BỊ CHIẾN ĐẤU</h2>
+      <h2 className="text-4xl font-bold mb-2 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">CHUẨN BỊ CHIẾN ĐẤU</h2>
       <div className="text-6xl font-mono text-yellow-400 mb-6 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">
         {gameState.timer}s
       </div>
@@ -349,30 +421,30 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
         <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl flex flex-col justify-between">
           <div>
-            <h3 className="text-xl font-bold mb-4 text-center text-blue-400">Tùy Chỉnh AI (Bí mật)</h3>
+            <h3 className="text-xl font-bold mb-4 text-center text-blue-400">Tùy Chỉnh AI Của Bạn (Bí mật)</h3>
             <form onSubmit={saveTactics} className="flex flex-col gap-4">
-              <input className="p-2 bg-gray-700 rounded" placeholder="Tên của bạn" value={name} onChange={e=>setName(e.target.value)} />
-              <input className="p-2 bg-gray-700 rounded" placeholder="Mật khẩu" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
+              <input className="p-3 bg-gray-700 rounded outline-none focus:border-blue-500 border border-transparent" placeholder="Xác nhận Tên của bạn" value={name} onChange={e=>setName(e.target.value)} />
+              <input className="p-3 bg-gray-700 rounded outline-none focus:border-blue-500 border border-transparent" placeholder="Nhập Mật khẩu" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
               
               <div>
-                <label className="text-sm text-gray-400">Mục tiêu ưu tiên</label>
-                <select className="p-2 bg-gray-700 rounded w-full" value={targetRule} onChange={e=>setTargetRule(e.target.value)}>
-                  <option value="nearest">Gần nhất</option>
-                  <option value="lowest_hp">Yếu HP nhất (Móc lốp)</option>
-                  <option value="tankiest">Trâu HP nhất (Diệt boss)</option>
-                  <option value="counter">Kẻ bị mình khắc hệ</option>
+                <label className="text-sm text-gray-400 font-bold">Mục tiêu ưu tiên</label>
+                <select className="p-3 bg-gray-700 rounded w-full mt-1" value={targetRule} onChange={e=>setTargetRule(e.target.value)}>
+                  <option value="nearest">Đánh Gần nhất (Khuyên dùng cho Cận chiến)</option>
+                  <option value="lowest_hp">Săn Kẻ Yếu HP nhất (Móc lốp cướp mạng)</option>
+                  <option value="tankiest">Đánh Trâu HP nhất (Diệt boss)</option>
+                  <option value="counter">Săn Kẻ bị mình khắc hệ (Khuyên dùng cho Sát Thủ)</option>
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400">Chiến thuật sinh tồn</label>
-                <select className="p-2 bg-gray-700 rounded w-full" value={campRule} onChange={e=>setCampRule(e.target.value)}>
-                  <option value="attack">Khô máu ngay từ đầu</option>
-                  <option value="top5">Núp lùm đến Top 5</option>
-                  <option value="top3">Núp lùm đến Top 3</option>
-                  <option value="top2">Núp lùm đến Top 2</option>
+                <label className="text-sm text-gray-400 font-bold">Chiến thuật Sinh tồn</label>
+                <select className="p-3 bg-gray-700 rounded w-full mt-1" value={campRule} onChange={e=>setCampRule(e.target.value)}>
+                  <option value="attack">Khô máu ngay từ đầu (Tử chiến)</option>
+                  <option value="top5">Núp lùm lảng tránh đến khi còn Top 5</option>
+                  <option value="top3">Núp lùm lảng tránh đến khi còn Top 3</option>
+                  <option value="top2">Núp lùm lảng tránh đến khi còn Top 2</option>
                 </select>
               </div>
-              <button className="bg-green-600 hover:bg-green-500 py-3 mt-2 rounded font-bold shadow-[0_0_15px_rgba(22,163,74,0.4)]">
+              <button className="bg-green-600 hover:bg-green-500 py-4 mt-4 rounded font-bold shadow-[0_0_15px_rgba(22,163,74,0.4)] text-lg uppercase tracking-wider">
                 LƯU CHỈ THỊ AI
               </button>
             </form>
@@ -381,11 +453,11 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 
         <div className="bg-gray-800 p-8 rounded-xl border border-purple-500 shadow-2xl flex flex-col justify-center">
           <h3 className="text-xl font-bold mb-4 text-center text-purple-400">👑 Quyền Host</h3>
-          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược.</p>
-          <input className="p-3 bg-gray-700 rounded mb-4 text-center text-lg" placeholder="Nhập Pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược, hoặc test sức mạnh Bots.</p>
+          <input className="p-3 bg-gray-700 rounded mb-4 text-center text-lg outline-none" placeholder="Nhập Pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
           {hostPwd === 'dev123' && (
             <button onClick={forceStart} className="bg-red-600 hover:bg-red-500 py-4 px-6 rounded font-bold text-white uppercase tracking-wider animate-pulse shadow-[0_0_20px_rgba(220,38,38,0.6)]">
-              ⏩ Bỏ qua & Vào Game Luôn
+              ⏩ Bỏ qua Chờ & Vào Game Luôn
             </button>
           )}
         </div>
@@ -399,7 +471,6 @@ function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
   const vfxRef = useRef([]); 
   
-  // Đọc Data từ config của Backend
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
   const cardW = gameState.config.character_settings.card_width;
@@ -408,7 +479,7 @@ function Phase3({ gameState, hostPwd }) {
   const handleForceEnd = async () => {
     let pwd = hostPwd;
     if (pwd !== 'dev123') {
-      pwd = window.prompt("Bạn chưa nhập Pass Host ở phòng chờ. Vui lòng nhập Pass (dev123) để Dừng Trận Sớm:");
+      pwd = window.prompt("Bạn chưa nhập Pass Host. Vui lòng nhập Pass (dev123) để Dừng Trận Sớm:");
     }
     if (pwd === "dev123") {
       await fetch(`${API_URL}/force_end`, {
@@ -451,25 +522,33 @@ function Phase3({ gameState, hostPwd }) {
     const ch = gameState.config.map_height;
     const z = gameState.zone;
     
+    // LAYER 1: BÊN NGOÀI BO
     ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
 
+    // LAYER 2: BÊN TRONG BO (Tạo hiệu ứng thu bo chớp nháy nhẹ bằng shadow)
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.fillStyle = gameState.config.bg_color;
+    ctx.shadowBlur = 50;
+    ctx.shadowColor = '#EF4444'; // Bóng đỏ lấn vào trong bo 1 xíu
     ctx.fill();
+    ctx.shadowBlur = 0; // Tắt đi
 
+    // LAYER 3: KẺ LƯỚI GRID
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     for(let i=0; i<cw; i+=100) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); ctx.stroke(); }
     for(let i=0; i<ch; i+=100) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); ctx.stroke(); }
 
+    // LAYER 4: VIỀN CỦA VÒNG BO ĐỎ
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.strokeStyle = '#EF4444';
     ctx.lineWidth = 6;
     ctx.stroke();
 
+    // LAYER 5: VÒNG TRÒN TẦM ĐÁNH CỦA NHÂN VẬT 
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) return;
       const w_data = WEAPONS[p.weapon];
@@ -497,10 +576,11 @@ function Phase3({ gameState, hostPwd }) {
       ctx.shadowBlur = 0;
     });
 
+    // LAYER 6: ĐƯỜNG ĐẠN BAY XA
     gameState.projectiles.forEach(p => {
       if(p.type !== 'melee') { 
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+        ctx.arc(p.x, p.y, 6, 0, Math.PI*2); // Đạn bự hơn
         ctx.fillStyle = p.type === 'dagger' ? '#9CA3AF' : p.type === 'bow' ? '#FDE047' : '#60A5FA';
         ctx.fill();
         ctx.shadowBlur = 15;
@@ -510,6 +590,7 @@ function Phase3({ gameState, hostPwd }) {
       }
     });
 
+    // LAYER 7: THẺ BÀI NHÂN VẬT CHÍNH
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) {
         ctx.fillStyle = '#4B5563'; 
@@ -519,26 +600,32 @@ function Phase3({ gameState, hostPwd }) {
         return;
       }
 
-      const isBerserk = p.hp < (p.max_hp * 0.3); // Config máu
+      const isBerserk = p.hp < (p.max_hp * 0.3); // Điên cuồng khi < 30% máu
       const cx = p.x - cardW / 2;
       const cy = p.y - cardH / 2;
 
+      // Nền Thẻ Bài
       ctx.fillStyle = '#1F2937';
       ctx.fillRect(cx, cy, cardW, cardH);
+      
+      // Viền Thẻ Bài
       ctx.strokeStyle = isBerserk ? '#EF4444' : '#FBBF24';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = isBerserk ? 4 : 2; // Berserk viền dày hơn
       ctx.strokeRect(cx, cy, cardW, cardH);
 
+      // Tên (Cắt ngắn đễ không tràn thẻ)
       ctx.fillStyle = 'white';
       ctx.font = 'bold 16px sans-serif';
       ctx.textAlign = 'center';
       const shortName = p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name;
       ctx.fillText(shortName, p.x, cy + 22);
 
+      // Emoji Vũ Khí & Khiên
       ctx.font = '32px sans-serif';
       ctx.fillText(WEAPONS[p.weapon].e, p.x - 20, cy + 60);
       ctx.fillText(SHIELDS[p.shield].e, p.x + 20, cy + 60);
 
+      // Thanh Máu (HP Bar)
       const hpBoxX = cx + 8;
       const hpBoxY = cy + 80;
       const hpBoxW = cardW - 16;
@@ -556,6 +643,7 @@ function Phase3({ gameState, hostPwd }) {
       ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 12);
     });
 
+    // LAYER 8: VẼ VFX TRÊN CÙNG (Đè lên Thẻ Bài)
     let activeVfx =[];
     vfxRef.current.forEach(v => {
       if (v.type === 'slash') {
@@ -594,6 +682,7 @@ function Phase3({ gameState, hostPwd }) {
 
   return (
     <div className="flex w-full h-full overflow-hidden min-h-0">
+      {/* VÙNG MAP */}
       <div className="flex-1 bg-[#0b0f19] relative flex items-center justify-center p-2 min-h-0 border-r border-gray-700">
         <canvas 
           ref={canvasRef} 
@@ -607,6 +696,7 @@ function Phase3({ gameState, hostPwd }) {
         </div>
       </div>
 
+      {/* VÙNG CASTER PANEL BÊN PHẢI */}
       <div className="w-96 bg-gray-800 flex flex-col shrink-0 h-full min-h-0">
         <div className="p-3 bg-gray-900 font-bold border-b border-gray-700 text-purple-400 flex items-center justify-between gap-2">
           <span>🎙️ Caster Panel (Live)</span>
@@ -618,7 +708,7 @@ function Phase3({ gameState, hostPwd }) {
             🛑 Kết Thúc Sớm
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col-reverse">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col-reverse custom-scrollbar">
           {gameState.logs.map((log, i) => (
             <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') || log.includes('🛑') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : 'border-blue-500 bg-gray-700'}`}>
               {log}
