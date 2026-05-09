@@ -1,459 +1,430 @@
-from fastapi import FastAPI, WebSocket
+import asyncio
+import json
+import math
+import random
+import os
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import random, json, os, asyncio, math
+from typing import List
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-DB_FILE = "game_data.json"
-CONFIG_FILE = "game_config.json"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-DEFAULT_STATS = {
-    "weapons": {
-        "dagger": {"name": "Phi dao", "icon": "🗡️", "color": "#94a3b8", "min_rng": 40, "rng": 120, "dmg": 14, "cd": 0.4, "wt": 0, "vfx": "throw", "desc": "Phóng dao dích dắc, siêu lẹ."},
-        "sword":  {"name": "Kiếm dài", "icon": "🤺", "color": "#ef4444", "min_rng": 0, "rng": 50, "dmg": 25, "cd": 1.0, "wt": 15, "vfx": "slash", "desc": "Cận chiến cân bằng."},
-        "spear":  {"name": "Trường giáo", "icon": "🔱", "color": "#f59e0b", "min_rng": 35, "rng": 90, "dmg": 22, "cd": 1.2, "wt": 20, "vfx": "thrust", "desc": "Đâm thấu giáp từ xa."},
-        "bow":    {"name": "Cung tiễn", "icon": "🏹", "color": "#22c55e", "min_rng": 80, "rng": 220, "dmg": 18, "cd": 0.8, "wt": 10, "vfx": "arrow", "desc": "Thả diều, vô dụng với Khiên thép."},
-        "hammer": {"name": "Búa tạ", "icon": "🔨", "color": "#f97316", "min_rng": 0, "rng": 45, "dmg": 65, "cd": 2.2, "wt": 40, "vfx": "bash", "desc": "Xáp lá cà đập nát mọi thứ."}
-    },
-    "shields": {
-        "buckler":      {"name": "Khiên nhỏ", "icon": "🥏", "def": 5, "wt": 2, "desc": "Chạy cực nhanh."},
-        "wood_shield":  {"name": "Khiên gỗ", "icon": "🪵", "def": 35, "wt": 20, "desc": "Phòng thủ ổn."},
-        "steel_shield": {"name": "Khiên thép", "icon": "🛡️", "def": 65, "wt": 60, "desc": "Kháng tên 100%, lết như rùa."}
-    },
-    "synergies": {
-        "dagger": ["wood_shield"], "sword": ["wood_shield", "buckler"],
-        "spear": ["steel_shield", "buckler"], "bow": ["buckler", "wood_shield"], "hammer": ["steel_shield"]
-    }
+# === CONSTANTS & STATS ===
+WEAPONS = {
+    "dagger": {"name": "Dao găm", "min_rng": 40, "max_rng": 120, "dmg": 14, "cd_ticks": 4, "weight": 0, "counters": "wood_shield"},
+    "sword": {"name": "Kiếm dài", "min_rng": 0, "max_rng": 50, "dmg": 25, "cd_ticks": 10, "weight": 15, "counters": ["wood_shield", "buckler"]},
+    "spear": {"name": "Trường giáo", "min_rng": 35, "max_rng": 90, "dmg": 22, "cd_ticks": 12, "weight": 20, "counters":["steel_shield", "buckler"]},
+    "bow": {"name": "Cung tiễn", "min_rng": 80, "max_rng": 220, "dmg": 18, "cd_ticks": 8, "weight": 10, "counters":["buckler", "wood_shield"]},
+    "hammer": {"name": "Búa tạ", "min_rng": 0, "max_rng": 45, "dmg": 65, "cd_ticks": 22, "weight": 40, "counters": "steel_shield"}
 }
 
-def load_game_config():
-    if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f: 
-            json.dump(DEFAULT_STATS, f, indent=4, ensure_ascii=False)
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f: 
-        return json.load(f)
-
-def load_data():
-    default_data = {"players": [], "config": {"title": "ULTIMATE ARENA", "bg": "#0f172a", "w": 800, "h": 600, "lang": "vi"}}
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r") as f: 
-                d = json.load(f)
-                if "config" not in d: d["config"] = default_data["config"]
-                if "lang" not in d["config"]: d["config"]["lang"] = "vi"
-                if "players" not in d: d["players"] = []
-                return d
-        except: 
-            pass
-    return default_data
-
-def save_data(data):
-    with open(DB_FILE, "w") as f: 
-        json.dump(data, f, indent=4)
-
-def get_random_vibrant_hex():
-    h = random.random()
-    s = 0.8 + random.random() * 0.2
-    l = 0.5 + random.random() * 0.2
-    
-    def hsl_to_rgb(h, s, l):
-        c = (1 - abs(2 * l - 1)) * s
-        x = c * (1 - abs((h * 6) % 2 - 1))
-        m = l - c / 2
-        
-        if h < 1/6:
-            r, g, b = c, x, 0
-        elif h < 2/6:
-            r, g, b = x, c, 0
-        elif h < 3/6:
-            r, g, b = 0, c, x
-        elif h < 4/6:
-            r, g, b = 0, x, c
-        elif h < 5/6:
-            r, g, b = x, 0, c
-        else:
-            r, g, b = c, 0, x
-            
-        return int((r+m)*255), int((g+m)*255), int((b+m)*255)
-        
-    return '#{:02x}{:02x}{:02x}'.format(*hsl_to_rgb(h, s, l))
-
-db = load_data()
-stats = load_game_config()
-game_state = {
-    "status": "waiting", "players": [], "particles": [], "logs": [], 
-    "winner_info": None, "ready_count": 0, "timer": 0, "config": db["config"], "safe_zone": None
+SHIELDS = {
+    "buckler": {"name": "Khiên nhỏ", "weight": 2, "block": 0.05},
+    "wood_shield": {"name": "Khiên gỗ", "weight": 20, "block": 0.35},
+    "steel_shield": {"name": "Khiên thép", "weight": 60, "block": 0.65}
 }
-active_connections = []
 
-class PlayerReg(BaseModel): 
+DATA_DIR = "/app/data"
+os.makedirs(DATA_DIR, exist_ok=True)
+CONFIG_FILE = os.path.join(DATA_DIR, "game_config.json")
+DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
+
+# === STATE MANAGEMENT ===
+class GameState:
+    def __init__(self):
+        self.phase = "waiting" # waiting, strategy, playing, finished
+        self.config = {"room_name": "Giải Đấu Cờ Nhân Phẩm", "map_width": 2000, "map_height": 2000, "bg_color": "#052e16", "language": "vi"}
+        self.players = {}
+        self.logs =[]
+        self.events = [] # For SFX (transient)
+        self.projectiles =[]
+        self.ticks = 0
+        self.phase2_timer = 180
+        
+        # Red Zone
+        self.zone_target_radius = 2000
+        self.zone_current_radius = 2000
+        self.zone_x = 1000
+        self.zone_y = 1000
+
+        self.load_config()
+        self.load_data()
+
+    def load_config(self):
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    self.config.update(json.load(f))
+            except: pass
+
+    def save_config(self):
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(self.config, f, ensure_ascii=False, indent=4)
+
+    def load_data(self):
+        if os.path.exists(DATA_FILE):
+            try:
+                with open(DATA_FILE, "r", encoding="utf-8") as f:
+                    self.players = json.load(f)
+            except: pass
+
+    def save_data(self):
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(self.players, f, ensure_ascii=False, indent=4)
+
+    def add_log(self, msg_vi, msg_en):
+        msg = msg_vi if self.config["language"] == "vi" else msg_en
+        self.logs.insert(0, msg)
+        if len(self.logs) > 30: self.logs.pop()
+
+game_state = GameState()
+active_connections: List[WebSocket] =[]
+
+# === MODELS ===
+class ConfigReq(BaseModel):
+    room_name: str
+    map_width: int
+    map_height: int
+    bg_color: str
+    language: str
+
+class RegisterReq(BaseModel):
     name: str
-    password: str
+    pwd: str
     weapon: str
     shield: str
 
-class PlayerStrategy(BaseModel): 
+class StrategyReq(BaseModel):
     name: str
-    password: str
+    pwd: str
     target_rule: str
-    camp_until: int
+    camp_rule: str
 
-class ConfigModel(BaseModel): 
-    title: str
-    bg: str
-    w: int
-    h: int
-    lang: str
+# === API ENDPOINTS ===
+@app.post("/api/config")
+def save_config(req: ConfigReq):
+    game_state.config.update(req.dict())
+    game_state.save_config()
+    return {"status": "ok"}
 
-def log_start(lang): return "🎙️ TRẬN ĐẤU KHAI MÀN! Bo sẽ thu hẹp mỗi 20 giây!" if lang == 'vi' else "🎙️ MATCH HAS BEGUN! Safe zone shrinks every 20s!"
-def log_berserk(lang, name, time): return f"🔥 [{time}s] {name} tử chiến!" if lang == 'vi' else f"🔥 [{time}s] {name} goes BERSERK!"
-def log_kill(lang, killer, victim, time): return f"[{time}s] 💀 {killer} tiễn {victim} lên bảng!" if lang == 'vi' else f"[{time}s] 💀 {killer} eliminated {victim}!"
-def log_zone_kill(lang, victim, time): return f"[{time}s] ☠️ {victim} gục ngã ngoài vòng bo!" if lang == 'vi' else f"[{time}s] ☠️ {victim} died to the Red Zone!"
-def log_zone_shrink(lang, time): return f"⚠️ [{time}s] CHÚ Ý: Vòng bo đang thu hẹp!" if lang == 'vi' else f"⚠️ [{time}s] WARNING: Safe zone is shrinking!"
-
-async def broadcast_state():
-    game_state["config"] = db["config"]
-    msg = json.dumps(game_state)
-    for conn in list(active_connections):
-        try: 
-            await conn.send_text(msg)
-        except: 
-            active_connections.remove(conn)
-
-@app.get("/stats")
-def get_stats(): 
-    return load_game_config()
-
-@app.get("/lobby")
-def get_lobby(): 
-    return db["players"]
-
-@app.post("/register")
-async def register(data: PlayerReg):
-    if any(p["name"] == data.name for p in db["players"]): 
-        return {"status": "error", "message": "Name exists!"}
+@app.post("/api/register")
+def register_player(req: RegisterReq):
+    if req.name in game_state.players and game_state.players[req.name]["pwd"] != req.pwd:
+        return {"error": "Sai mật khẩu"}
     
-    player_data = data.model_dump()
-    player_data.update({"strategy": None, "color": get_random_vibrant_hex()})
-    db["players"].append(player_data)
-    
-    save_data(db)
-    await broadcast_state()
-    return {"status": "success"}
-
-@app.post("/add-bots")
-async def add_bots():
-    prefixes = ["Yasuo", "Garen", "Ashe", "Talon", "Darius", "Zed", "Jinx", "LeeSin", "Vayne", "Malphite"]
-    for _ in range(10):
-        name = f"Bot_{random.choice(prefixes)}_{random.randint(1000, 9999)}"
-        db["players"].append({
-            "name": name, "password": "bot", 
-            "weapon": random.choice(list(stats["weapons"].keys())), 
-            "shield": random.choice(list(stats["shields"].keys())),
-            "strategy": {
-                "target_rule": random.choice(["closest", "lowest_hp", "counter"]), 
-                "camp_until": random.choices([99, 5, 3], weights=[70, 15, 15])[0]
-            },
-            "color": get_random_vibrant_hex()
-        })
-    save_data(db)
-    await broadcast_state()
-    return {"status": "success"}
-
-@app.post("/start-now")
-async def start_now():
-    for p in db["players"]:
-        if p["strategy"] is None:
-            p["strategy"] = {
-                "target_rule": random.choice(["closest", "lowest_hp", "counter"]), 
-                "camp_until": random.choices([99, 5, 3], weights=[70, 15, 15])[0]
-            }
-    save_data(db)
-    game_state["status"] = "playing"
-    await start_game_engine()
-    return {"status": "success"}
-
-@app.post("/phase-strategy")
-async def to_strat():
-    game_state["status"] = "strategy"
-    await broadcast_state()
-    asyncio.create_task(countdown_task())
-    return {"status": "success"}
-
-@app.post("/update-strategy")
-async def update_strat(data: PlayerStrategy):
-    for p in db["players"]:
-        if p["name"] == data.name:
-            if p["password"] != data.password: 
-                return {"status": "error", "message": "Wrong pass!"}
-            p["strategy"] = {"target_rule": data.target_rule, "camp_until": data.camp_until}
-            save_data(db)
-            game_state["ready_count"] = len([px for px in db["players"] if px["strategy"]])
-            await broadcast_state()
-            return {"status": "success"}
-    return {"status": "error", "message": "Player not found!"}
-
-@app.post("/rematch")
-async def rematch():
-    for p in db["players"]: 
-        p["strategy"] = None
-    save_data(db)
-    game_state.update({
-        "status": "waiting", "winner_info": None, "logs": [], 
-        "timer": 0, "ready_count": 0, "players": [], "safe_zone": None
-    })
-    await broadcast_state()
-    return {"status": "success"}
-
-@app.post("/reset-all")
-async def reset_all():
-    db["players"] = []
-    save_data(db)
-    game_state.update({
-        "status": "waiting", "players": [], "winner_info": None, "logs": [], 
-        "timer": 0, "ready_count": 0, "safe_zone": None
-    })
-    await broadcast_state()
-    return {"status": "success"}
-
-@app.delete("/player/{name}")
-async def delete_player(name: str):
-    db["players"] = [p for p in db["players"] if p["name"] != name]
-    save_data(db)
-    await broadcast_state()
-    return {"status": "success"}
-
-async def countdown_task():
-    game_state["timer"] = 180
-    while game_state["status"] == "strategy" and game_state["timer"] > 0:
-        await asyncio.sleep(1)
-        game_state["timer"] -= 1
-        await broadcast_state()
-    if game_state["status"] == "strategy": 
-        await start_game_engine()
-
-async def start_game_engine():
-    conf = db["config"]
-    players = []
-    st = load_game_config()
-    game_state["logs"] = [log_start(conf.get("lang", "vi"))]
-    
-    initial_radius = math.hypot(conf["w"], conf["h"]) / 2
-    game_state["safe_zone"] = {
-        "x": conf["w"]/2, 
-        "y": conf["h"]/2, 
-        "radius": initial_radius, 
-        "target_radius": initial_radius,
-        "min_radius": 60,
-        "last_shrink_time": 0
+    # Random sẵn AI ban đầu. Nếu người chơi không kịp lưu Phase 2 thì sẽ dùng AI ngẫu nhiên này.
+    game_state.players[req.name] = {
+        "name": req.name, "pwd": req.pwd,
+        "weapon": req.weapon, "shield": req.shield,
+        "target_rule": random.choice(["nearest", "lowest_hp", "tankiest", "counter"]),
+        "camp_rule": random.choice(["attack", "top5", "top3", "top2"]),
+        "hp": 500, "max_hp": 500, "alive": True,
+        "x": random.randint(100, game_state.config["map_width"] - 100),
+        "y": random.randint(100, game_state.config["map_height"] - 100),
+        "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2)
     }
+    game_state.save_data()
+    return {"status": "ok"}
 
-    for p in db["players"]:
-        w, s = st["weapons"][p["weapon"]], st["shields"][p["shield"]]
-        speed = max(30, 180 - (w["wt"] + s["wt"]))
-        players.append({
-            "name": p["name"], "weapon": p["weapon"], "shield": p["shield"], 
-            "icon": w["icon"], "s_icon": s["icon"], "color": p.get("color", "#fff"),
-            "x": random.randint(50, conf["w"]-50), "y": random.randint(50, conf["h"]-50),
-            "hp": 500, "max_hp": 500, "min_rng": w.get("min_rng", 0), "range": w["rng"], "speed": speed, 
-            "dmg": w["dmg"], "def_percent": s["def"], "cd": 0, "max_cd": w["cd"] * 10, 
-            "strat": p["strategy"], "vfx": w["vfx"], "wander_angle": random.uniform(0, math.pi * 2)
-        })
-        
-    game_state["status"] = "playing"
-    game_state["players"] = players
-    await broadcast_state()
-    asyncio.create_task(game_loop())
+@app.post("/api/strategy")
+def set_strategy(req: StrategyReq):
+    if req.name in game_state.players and game_state.players[req.name]["pwd"] == req.pwd:
+        game_state.players[req.name]["target_rule"] = req.target_rule
+        game_state.players[req.name]["camp_rule"] = req.camp_rule
+        game_state.save_data()
+        return {"status": "ok"}
+    return {"error": "Sai thông tin"}
 
-async def game_loop():
-    conf = db["config"]
-    tick = 0.1
-    st = load_game_config()
-    start_time = asyncio.get_event_loop().time()
-    
-    while game_state["status"] == "playing":
-        lang = conf.get("lang", "vi")
-        ps = game_state["players"]
-        alive = [p for p in ps if p["hp"] > 0]
-        match_time = int(asyncio.get_event_loop().time() - start_time)
+@app.post("/api/bots")
+def add_bots():
+    names =["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin"]
+    for name in names:
+        bot_name = f"Bot_{name}_{random.randint(1000,9999)}"
+        game_state.players[bot_name] = {
+            "name": bot_name, "pwd": "bot",
+            "weapon": random.choice(list(WEAPONS.keys())),
+            "shield": random.choice(list(SHIELDS.keys())),
+            "target_rule": random.choice(["nearest", "lowest_hp", "tankiest", "counter"]),
+            "camp_rule": random.choice(["attack", "top5", "top3", "top2"]),
+            "hp": 500, "max_hp": 500, "alive": True,
+            "x": random.randint(100, game_state.config["map_width"] - 100),
+            "y": random.randint(100, game_state.config["map_height"] - 100),
+            "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2)
+        }
+    game_state.save_data()
+    return {"status": "ok"}
 
-        if len(alive) <= 1:
-            game_state["status"] = "finished"
-            game_state["winner_info"] = alive[0] if alive else None
-            await broadcast_state()
-            break
-        
-        sz = game_state["safe_zone"]
-        if match_time > 0 and match_time % 20 == 0 and match_time != sz.get("last_shrink_time"):
-            sz["last_shrink_time"] = match_time
-            sz["target_radius"] = max(sz["min_radius"], sz["target_radius"] - 120)
-            game_state["logs"].append(log_zone_shrink(lang, match_time))
+@app.post("/api/phase/{phase}")
+def set_phase(phase: str):
+    game_state.phase = phase
+    if phase == "strategy":
+        game_state.phase2_timer = 180
+    elif phase == "playing":
+        game_state.logs =[]
+        game_state.add_log("Trận chiến sinh tồn bắt đầu!", "Battle Royale started!")
+        game_state.projectiles =[]
+        game_state.ticks = 0
+        w, h = game_state.config["map_width"], game_state.config["map_height"]
+        game_state.zone_x = w / 2
+        game_state.zone_y = h / 2
+        game_state.zone_target_radius = math.hypot(w, h) / 2
+        game_state.zone_current_radius = game_state.zone_target_radius
+        for p in game_state.players.values():
+            p["hp"] = p["max_hp"]
+            p["alive"] = True
+            p["x"] = random.randint(100, w - 100)
+            p["y"] = random.randint(100, h - 100)
+            p["cooldown"] = 0
+    elif phase == "waiting":
+        game_state.players = {}
+        game_state.save_data()
+    return {"status": "ok"}
 
-        if sz["radius"] > sz["target_radius"]:
-            sz["radius"] -= 15 * tick 
-            if sz["radius"] < sz["target_radius"]: 
-                sz["radius"] = sz["target_radius"]
-
-        game_state["particles"] = []
-        for p in alive:
-            try:
-                dist_to_center = math.hypot(p["x"] - sz["x"], p["y"] - sz["y"])
-                if dist_to_center > sz["radius"]:
-                    p["hp"] -= 0.8 
-                    if p["hp"] <= 0:
-                        game_state["logs"].append(log_zone_kill(lang, p['name'], match_time))
-                        continue
-
-                if p["cd"] > 0: 
-                    p["cd"] -= 1
-                    
-                enemies = [e for e in alive if e["name"] != p["name"]]
-                if not enemies: 
-                    continue
-
-                sep_x, sep_y = 0.0, 0.0
-                for e in alive:
-                    if e["name"] != p["name"]:
-                        d = math.hypot(e["x"] - p["x"], e["y"] - p["y"])
-                        if 0 < d < 25:
-                            sep_x += (p["x"] - e["x"]) / d
-                            sep_y += (p["y"] - e["y"]) / d
-                p["x"] += sep_x * 10 * tick
-                p["y"] += sep_y * 10 * tick
-
-                rule = p["strat"]["target_rule"]
-                if rule == "lowest_hp": 
-                    target = min(enemies, key=lambda e: e["hp"])
-                elif rule == "highest_hp": 
-                    target = max(enemies, key=lambda e: e["hp"])
-                elif rule == "counter":
-                    cnts = [e for e in enemies if e["shield"] in st["synergies"].get(p["weapon"], [])]
-                    if cnts:
-                        target = min(cnts, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
-                    else:
-                        target = min(enemies, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
-                else: 
-                    target = min(enemies, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
-
-                dist_to_target = math.hypot(target["x"]-p["x"], target["y"]-p["y"])
-                ang_to_target = math.atan2(target["y"]-p["y"], target["x"]-p["x"])
-
-                if p["weapon"] == "dagger" and p["strat"]["camp_until"] < 99:
-                    ang_to_target += math.sin(match_time * 15) * 0.8 
-
-                if p["hp"] < 150 and p["strat"]["camp_until"] < 99:
-                    p["strat"]["camp_until"] = 99
-                    game_state["logs"].append(log_berserk(lang, p['name'], match_time))
-
-                is_fleeing = len(alive) > p["strat"]["camp_until"]
-                
-                if dist_to_center > sz["radius"] - 15:
-                    ang_to_center = math.atan2(sz["y"]-p["y"], sz["x"]-p["x"])
-                    p["x"] += math.cos(ang_to_center) * (p["speed"] * 1.5) * tick
-                    p["y"] += math.sin(ang_to_center) * (p["speed"] * 1.5) * tick
-                
-                elif is_fleeing:
-                    move_x, move_y = 0.0, 0.0
-                    in_danger = False
-                    for e in enemies:
-                        dist = math.hypot(e["x"] - p["x"], e["y"] - p["y"])
-                        danger_zone = e["range"] + 40
-                        if dist < danger_zone:
-                            in_danger = True
-                            push = (danger_zone - dist) / danger_zone
-                            dx, dy = p["x"] - e["x"], p["y"] - e["y"]
-                            mag = max(math.hypot(dx, dy), 0.1)
-                            move_x += (dx / mag) * push
-                            move_y += (dy / mag) * push
-
-                    if in_danger:
-                        if p["x"] < 100: 
-                            move_x += 1.5
-                        elif p["x"] > conf["w"] - 100: 
-                            move_x -= 1.5
-                            
-                        if p["y"] < 100: 
-                            move_y += 1.5
-                        elif p["y"] > conf["h"] - 100: 
-                            move_y -= 1.5
-                            
-                        f_mag = max(math.hypot(move_x, move_y), 0.1)
-                        p["x"] += (move_x / f_mag) * (p["speed"] * 1.5) * tick
-                        p["y"] += (move_y / f_mag) * (p["speed"] * 1.5) * tick
-                    else:
-                        p["wander_angle"] += random.uniform(-0.3, 0.3)
-                        p["x"] += math.cos(p["wander_angle"]) * (p["speed"] * 0.4) * tick
-                        p["y"] += math.sin(p["wander_angle"]) * (p["speed"] * 0.4) * tick
-                        if p["x"] < 50 or p["x"] > conf["w"]-50 or p["y"] < 50 or p["y"] > conf["h"]-50:
-                            p["wander_angle"] += math.pi
-                else:
-                    if dist_to_target < p["min_rng"]:
-                        p["x"] -= math.cos(ang_to_target) * p["speed"] * tick
-                        p["y"] -= math.sin(ang_to_target) * p["speed"] * tick
-                    elif dist_to_target > p["range"] - 10:
-                        p["x"] += math.cos(ang_to_target) * p["speed"] * tick
-                        p["y"] += math.sin(ang_to_target) * p["speed"] * tick
-
-                p["x"] = max(20, min(conf["w"]-20, p["x"]))
-                p["y"] = max(20, min(conf["h"]-20, p["y"]))
-
-                if p["cd"] <= 0:
-                    enemies_in_range = [e for e in enemies if p["min_rng"] <= math.hypot(e["x"]-p["x"], e["y"]-p["y"]) <= p["range"]]
-                    if enemies_in_range:
-                        if not is_fleeing and target in enemies_in_range:
-                            attack_target = target
-                        else:
-                            attack_target = min(enemies_in_range, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
-                            
-                        synergy_mult = 2.0 if attack_target["shield"] in st["synergies"].get(p["weapon"], []) else 1.0
-                        
-                        base_dmg = p["dmg"]
-                        if p["weapon"] == "bow" and attack_target["shield"] == "steel_shield":
-                            base_dmg = max(1, base_dmg // 2)
-
-                        def_mult = 1.0 - (attack_target["def_percent"] / 100.0)
-                        final_dmg = max(1, int(base_dmg * synergy_mult * def_mult))
-                        attack_target["hp"] -= final_dmg
-                        p["cd"] = p["max_cd"]
-
-                        if p["weapon"] in ["sword", "hammer"]:
-                            kb_ang = math.atan2(attack_target["y"] - p["y"], attack_target["x"] - p["x"])
-                            attack_target["x"] += math.cos(kb_ang) * 15
-                            attack_target["y"] += math.sin(kb_ang) * 15
-                        
-                        game_state["particles"].append({
-                            "x1": p["x"], "y1": p["y"], 
-                            "x2": attack_target["x"], "y2": attack_target["y"], 
-                            "c": p["color"], "type": p["vfx"]
-                        })
-                        
-                        if attack_target["hp"] <= 0: 
-                            game_state["logs"].append(log_kill(lang, p['name'], attack_target['name'], match_time))
-                        elif synergy_mult > 1.0 and random.random() > 0.9: 
-                            game_state["logs"].append(log_crit(lang, p['name'], attack_target['name'], match_time))
-            except: 
-                pass
-                
-        await broadcast_state()
-        await asyncio.sleep(tick)
+# === WEBSOCKET & ENGINE LOOP ===
+async def broadcast():
+    if not active_connections: return
+    data = {
+        "phase": game_state.phase,
+        "config": game_state.config,
+        "players": game_state.players,
+        "logs": game_state.logs,
+        "events": game_state.events,
+        "projectiles": game_state.projectiles,
+        "timer": game_state.phase2_timer,
+        "zone": {"x": game_state.zone_x, "y": game_state.zone_y, "r": game_state.zone_current_radius}
+    }
+    msg = json.dumps(data)
+    for conn in active_connections:
+        try: await conn.send_text(msg)
+        except: pass
+    game_state.events.clear() # Clear transient events
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     active_connections.append(websocket)
     try:
-        await websocket.send_text(json.dumps(game_state))
-        while True: 
-            await websocket.receive_text()
-    except:
-        if websocket in active_connections: 
-            active_connections.remove(websocket)
+        while True: await websocket.receive_text()
+    except WebSocketDisconnect:
+        active_connections.remove(websocket)
 
-@app.post("/config")
-async def update_config(c: ConfigModel):
-    db["config"] = c.model_dump()
-    save_data(db)
-    await broadcast_state()
-    return {"status": "success"}
+def calc_dist(x1, y1, x2, y2):
+    dx, dy = x2 - x1, y2 - y1
+    dist = math.hypot(dx, dy)
+    if dist < 0.001: return 1.0, 1.0, 1.414
+    return dx, dy, dist
+
+def is_counter(weap, shield):
+    counters = WEAPONS[weap]["counters"]
+    if isinstance(counters, list): return shield in counters
+    return shield == counters
+
+def update_game_logic():
+    game_state.ticks += 1
+    
+    if game_state.phase == "strategy" and game_state.ticks % 10 == 0:
+        game_state.phase2_timer -= 1
+        if game_state.phase2_timer <= 0:
+            set_phase("playing")
+        return
+
+    if game_state.phase != "playing": return
+
+    w_map = game_state.config["map_width"]
+    h_map = game_state.config["map_height"]
+
+    # --- ZONE LOGIC ---
+    if game_state.ticks % 200 == 0: # Every 20s (200 ticks)
+        game_state.zone_target_radius = max(50, game_state.zone_target_radius - 120)
+        game_state.add_log("⚠️ Vòng bo đang thu hẹp!", "⚠️ The Red Zone is shrinking!")
+
+    if game_state.zone_current_radius > game_state.zone_target_radius:
+        game_state.zone_current_radius -= 2.0 # Smooth shrink
+
+    # Process projectiles
+    new_projs = []
+    for proj in game_state.projectiles:
+        proj["life"] -= 1
+        proj["x"] += proj["vx"]
+        proj["y"] += proj["vy"]
+        if proj["life"] > 0: new_projs.append(proj)
+    game_state.projectiles = new_projs
+
+    alive_players =[p for p in game_state.players.values() if p["alive"]]
+    alive_count = len(alive_players)
+
+    if alive_count <= 1:
+        if alive_count == 1:
+            winner = alive_players[0]
+            game_state.add_log(f"🏆 {winner['name']} vô địch Battle Royale!", f"🏆 {winner['name']} won the Battle Royale!")
+            game_state.events.append({"type": "win"})
+        game_state.phase = "finished"
+        return
+
+    # BOIDS - Anti-clumping
+    repulsion = {p["name"]:[0.0, 0.0] for p in alive_players}
+    for i in range(len(alive_players)):
+        for j in range(i+1, len(alive_players)):
+            p1, p2 = alive_players[i], alive_players[j]
+            dx, dy, dist = calc_dist(p1["x"], p1["y"], p2["x"], p2["y"])
+            if dist < 25:
+                force = (25 - dist) / 5
+                repulsion[p1["name"]][0] -= (dx/dist) * force
+                repulsion[p1["name"]][1] -= (dy/dist) * force
+                repulsion[p2["name"]][0] += (dx/dist) * force
+                repulsion[p2["name"]][1] += (dy/dist) * force
+
+    for p in alive_players:
+        if p["cooldown"] > 0: p["cooldown"] -= 1
+
+        w_data = WEAPONS[p["weapon"]]
+        s_data = SHIELDS[p["shield"]]
+        
+        # Speed calc: max(30, 180 - w - w) * dt(0.05)
+        base_speed = max(30, 180 - w_data["weight"] - s_data["weight"]) * 0.05
+
+        # Zone damage & logic
+        _, _, dist_to_zone = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+        outside_zone = dist_to_zone > game_state.zone_current_radius
+        if outside_zone:
+            p["hp"] -= 0.8 # -0.8 HP/tick
+
+        if p["hp"] <= 0:
+            p["hp"] = 0
+            p["alive"] = False
+            game_state.add_log(f"☠️ {p['name']} chết ngoài vòng bo!", f"☠️ {p['name']} died in the red zone!")
+            game_state.events.append({"type": "death"})
+            continue
+
+        # Berserk
+        is_berserk = p["hp"] < 150
+
+        # Camp rule logic
+        is_camping = False
+        if not is_berserk:
+            c = p["camp_rule"]
+            if c == "top5" and alive_count > 5: is_camping = True
+            if c == "top3" and alive_count > 3: is_camping = True
+            if c == "top2" and alive_count > 2: is_camping = True
+
+        vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
+
+        # PRIORITY 1: RUN TO ZONE
+        if outside_zone:
+            zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+            vx += (zx/zdist) * base_speed * 1.5
+        else:
+            # PRIORITY 2: COMBAT/FLEE/WANDER
+            enemies =[e for e in alive_players if e["name"] != p["name"]]
+            target = None
+            if p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
+            elif p["target_rule"] == "tankiest": target = max(enemies, key=lambda e: e["hp"])
+            elif p["target_rule"] == "counter":
+                counters =[e for e in enemies if is_counter(p["weapon"], e["shield"])]
+                target = min(counters, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if counters else min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
+            else:
+                target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
+
+            dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
+
+            if is_camping:
+                if dist < 150: # Enemy close -> Flee
+                    vx -= (dx/dist) * base_speed
+                else: # Safe -> Wander
+                    p["wander_angle"] += random.uniform(-0.3, 0.3)
+                    vx += math.cos(p["wander_angle"]) * (base_speed * 0.5)
+                    vy += math.sin(p["wander_angle"]) * (base_speed * 0.5)
+            else: # Attacking
+                if dist > w_data["max_rng"]:
+                    # Approach
+                    dir_x, dir_y = dx/dist, dy/dist
+                    if p["weapon"] == "dagger": # Zig-zag
+                        orth_x, orth_y = -dir_y, dir_x
+                        zig = math.sin(game_state.ticks * 0.3) * 2.0
+                        vx += (dir_x + orth_x * zig) * base_speed
+                    else:
+                        vx += dir_x * base_speed
+                elif dist < w_data["min_rng"]:
+                    # Retreat (Hit and Run)
+                    vx -= (dx/dist) * base_speed
+
+            # Attack logic
+            if w_data["min_rng"] <= dist <= w_data["max_rng"]:
+                if p["cooldown"] <= 0:
+                    t_shield_data = SHIELDS[target["shield"]]
+                    base_dmg = w_data["dmg"]
+                    
+                    # Exception: Bow vs Steel
+                    if p["weapon"] == "bow" and target["shield"] == "steel_shield":
+                        base_dmg /= 2.0
+
+                    # Counter multiplier
+                    multiplier = 2.0 if is_counter(p["weapon"], target["shield"]) else 1.0
+                    
+                    # Block reduction
+                    final_dmg = (base_dmg * multiplier) * (1.0 - t_shield_data["block"])
+                    target["hp"] -= final_dmg
+                    p["cooldown"] = w_data["cd_ticks"]
+
+                    # SFX & Visuals
+                    game_state.events.append({"type": "attack", "weapon": p["weapon"]})
+                    
+                    # Projectile Gen
+                    if p["weapon"] in ["bow", "dagger", "spear"]:
+                        game_state.projectiles.append({
+                            "x": p["x"], "y": p["y"],
+                            "vx": (dx/dist) * 15, "vy": (dy/dist) * 15,
+                            "life": int(dist/15), "type": p["weapon"]
+                        })
+                    else: # Melee line
+                        game_state.projectiles.append({
+                            "x": p["x"], "y": p["y"], "vx": 0, "vy": 0,
+                            "tx": target["x"], "ty": target["y"],
+                            "life": 3, "type": "melee"
+                        })
+
+                    # Knockback
+                    if p["weapon"] in ["sword", "hammer"]:
+                        kb = 15 if p["weapon"] == "sword" else 30
+                        target["x"] += (dx/dist) * kb
+                        target["y"] += (dy/dist) * kb
+
+                    if multiplier == 2.0:
+                        game_state.add_log(f"💥 {p['name']} khắc hệ, đâm {int(final_dmg)} HP vào {target['name']}!", 
+                                           f"💥 {p['name']} counters, deals {int(final_dmg)} dmg to {target['name']}!")
+                    
+                    if target["hp"] <= 0:
+                        target["hp"] = 0
+                        target["alive"] = False
+                        game_state.events.append({"type": "death"})
+                        game_state.add_log(f"💀 {p['name']} đã kết liễu {target['name']}!", 
+                                           f"💀 {p['name']} killed {target['name']}!")
+
+        # Apply movement with bounds bouncing
+        p["x"] += vx
+        p["y"] += vy
+        
+        if p["x"] < 20: p["x"] = 20; p["wander_angle"] = math.pi - p["wander_angle"]
+        elif p["x"] > w_map - 20: p["x"] = w_map - 20; p["wander_angle"] = math.pi - p["wander_angle"]
+        
+        if p["y"] < 20: p["y"] = 20; p["wander_angle"] = -p["wander_angle"]
+        elif p["y"] > h_map - 20: p["y"] = h_map - 20; p["wander_angle"] = -p["wander_angle"]
+
+async def game_loop():
+    while True:
+        update_game_logic()
+        await broadcast()
+        await asyncio.sleep(0.1) # 10 ticks/s
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(game_loop())

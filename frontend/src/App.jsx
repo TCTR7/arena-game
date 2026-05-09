@@ -1,335 +1,514 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const URL = `http://${window.location.hostname}:8000`;
-const WS = `ws://${window.location.hostname}:8000/ws`;
+const API_URL = "http://localhost:8000/api";
+const WS_URL = "ws://localhost:8000/ws";
 
-let audioCtx = null;
-const playSFX = (type) => {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination); const now = audioCtx.currentTime;
-
-  if (type === 'slash') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(450, now); osc.frequency.exponentialRampToValueAtTime(150, now + 0.1); gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); } 
-  else if (type === 'arrow') { osc.type = 'sine'; osc.frequency.setValueAtTime(900, now); osc.frequency.linearRampToValueAtTime(300, now + 0.1); gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
-  else if (type === 'throw') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(800, now); osc.frequency.linearRampToValueAtTime(600, now + 0.1); gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.1); osc.start(now); osc.stop(now + 0.1); }
-  else if (type === 'thrust') { osc.type = 'triangle'; osc.frequency.setValueAtTime(250, now); gain.gain.setValueAtTime(0.12, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08); osc.start(now); osc.stop(now + 0.08); }
-  else if (type === 'bash') { osc.type = 'square'; osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.15); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15); osc.start(now); osc.stop(now + 0.15); }
-  else if (type === 'shout') { osc.type = 'square'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.08); gain.gain.setValueAtTime(0.05, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08); osc.start(now); osc.stop(now + 0.08); }
-  else if (type === 'death') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.6); gain.gain.setValueAtTime(0.25, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6); osc.start(now); osc.stop(now + 0.6); }
-  else if (type === 'warning') { osc.type = 'square'; osc.frequency.setValueAtTime(200, now); osc.frequency.setValueAtTime(150, now + 0.5); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 1.0); osc.start(now); osc.stop(now + 1.0); }
-  else if (type === 'win') { osc.type = 'square'; [440, 554, 659, 880].forEach((freq, i) => { osc.frequency.setValueAtTime(freq, now + i*0.15); }); gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now + 1.0); osc.start(now); osc.stop(now + 1.0); }
-};
-
-const speakCaster = (text, langStr) => {
-  if (!window.speechSynthesis) return;
-  const cleanText = text.replace(/🎙️|🏆|💀|🔥|⚡|☠️|⚠️/g, '').replace(/\[.*?s\]/g, '').trim();
-  if (!cleanText) return;
-  
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-  const voices = window.speechSynthesis.getVoices();
-  
-  if (langStr === 'en') {
-      utterance.voice = voices.find(v => v.lang.startsWith('en')) || null;
-      utterance.lang = 'en-US';
-  } else {
-      const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.lang.includes('vi') || v.name.includes('Vietnamese'));
-      utterance.voice = vnVoice || voices[0];
-      utterance.lang = 'vi-VN';
+// --- SFX AUDIO ENGINE (8-bit) ---
+class SoundEngine {
+  constructor() {
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.muted = false;
   }
-  utterance.rate = 1.2; utterance.pitch = 1.0;
-  window.speechSynthesis.speak(utterance);
+  resume() { if(this.ctx.state === 'suspended') this.ctx.resume(); }
+  play(type) {
+    if (this.muted) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    const t = this.ctx.currentTime;
+    
+    switch(type) {
+      case 'sword':
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1); break;
+      case 'spear':
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(400, t); osc.frequency.linearRampToValueAtTime(200, t + 0.05);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05); break;
+      case 'dagger':
+        osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(1200, t + 0.1);
+        gain.gain.setValueAtTime(0.2, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1); break;
+      case 'bow':
+        osc.type = 'square'; osc.frequency.setValueAtTime(300, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+        gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15); break;
+      case 'hammer':
+        osc.type = 'square'; osc.frequency.setValueAtTime(80, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.3);
+        gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3); break;
+      case 'death':
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
+        gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5); break;
+      case 'win':
+        osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0); break;
+    }
+  }
+}
+const sfx = new SoundEngine();
+
+// --- TEXT TO SPEECH ---
+const speak = (text, langStr, muted) => {
+  if (muted || !window.speechSynthesis) return;
+  const msg = new SpeechSynthesisUtterance(text);
+  msg.lang = langStr === 'vi' ? 'vi-VN' : 'en-US';
+  msg.rate = 1.2;
+  window.speechSynthesis.speak(msg);
 };
 
-function App() {
-  const [lobby, setLobby] = useState([]);
-  const [statsWiki, setStatsWiki] = useState(null);
-  const [state, setState] = useState({ status: 'waiting', players: [], logs: [], timer: 0, config: {title:'ARENA', bg:'#0f172a', w:800, h:600, lang:'vi'}, safe_zone: null });
-  
-  // FIX CHỐNG SẬP API: Bộ đệm LocalConfig
-  const [localConfig, setLocalConfig] = useState(null);
+// --- EMOJIS & WIKI ---
+const WEAPONS = {
+  dagger: { n: "Dao găm", e: "🗡️", r: "40-120", d: 14, cd: "0.4s", w: 0 },
+  sword: { n: "Kiếm dài", e: "⚔️", r: "0-50", d: 25, cd: "1.0s", w: 15 },
+  spear: { n: "Trường giáo", e: "🔱", r: "35-90", d: 22, cd: "1.2s", w: 20 },
+  bow: { n: "Cung tiễn", e: "🏹", r: "80-220", d: 18, cd: "0.8s", w: 10 },
+  hammer: { n: "Búa tạ", e: "🔨", r: "0-45", d: 65, cd: "2.2s", w: 40 }
+};
+const SHIELDS = {
+  buckler: { n: "Khiên nhỏ", e: "🥏", w: 2, b: "5%" },
+  wood_shield: { n: "Khiên gỗ", e: "🪵", w: 20, b: "35%" },
+  steel_shield: { n: "Khiên thép", e: "🛡️", w: 60, b: "65%" }
+};
 
-  const [reg, setReg] = useState({ name: '', password: '', weapon: 'sword', shield: 'wood_shield' });
-  const [strat, setStrat] = useState({ name: '', password: '', target_rule: 'closest', camp_until: 99 });
-  const [isHost, setIsHost] = useState(false);
-  const canvasRef = useRef(null);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const logCountRef = useRef(0);
-  const hasAnnouncedWin = useRef(false);
-
-  const isPlaying = state.status === 'playing' || state.status === 'finished';
-  // Lấy dữ liệu hiển thị (Ưu tiên bộ đệm chưa lưu, nếu không có thì lấy Server)
-  const currentConfig = localConfig || state.config || {title:'ARENA', bg:'#0f172a', w:800, h:600, lang:'vi'};
+export default function App() {
+  const [gameState, setGameState] = useState(null);
+  const [started, setStarted] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const spokenLogs = useRef(new Set());
 
   useEffect(() => {
-    fetch(`${URL}/stats`).then(r=>r.json()).then(setStatsWiki).catch(err => console.error("API Lỗi (Hãy xóa file JSON cũ):", err));
-    const fetchLobby = () => fetch(`${URL}/lobby`).then(r => r.json()).then(d => setLobby(Array.isArray(d) ? d : [])).catch(() => setLobby([]));
-    fetchLobby(); const inv = setInterval(fetchLobby, 2000);
-    
-    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-
-    const socket = new WebSocket(WS);
-    socket.onmessage = (e) => {
-      const data = JSON.parse(e.data); setState(data);
-      const lang = data.config?.lang || 'vi';
+    const ws = new WebSocket(WS_URL);
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      setGameState(data);
       
-      if (data.status === 'playing') {
-          draw(data);
-          hasAnnouncedWin.current = false;
-          if (data.logs && data.logs.length > logCountRef.current) {
-              const newLogs = data.logs.slice(logCountRef.current);
-              logCountRef.current = data.logs.length;
-              if (soundEnabled) {
-                  newLogs.forEach(log => {
-                      speakCaster(log, lang);
-                      if (log.includes('💀') || log.includes('☠️')) playSFX('death');
-                      if (log.includes('⚠️')) playSFX('warning');
-                  });
-              }
-          }
-      } 
-      else if (data.status === 'finished' && data.winner_info) {
-          draw(data);
-          if (!hasAnnouncedWin.current) {
-              hasAnnouncedWin.current = true;
-              if (soundEnabled) {
-                  playSFX('win');
-                  const winner = data.winner_info;
-                  const kills = data.logs.filter(l => l.includes('💀') && l.includes(winner.name)).length;
-                  const duration = data.logs.find(l => l.includes('🏆'))?.match(/(\d+) (GIÂY|s)/)?.[1] || "";
-                  
-                  const summary = lang === 'en' 
-                    ? `Match complete in ${duration} seconds! Congratulations ${winner.name}. With ${winner.weapon} and ${winner.shield}, this legend took ${kills} kills!`
-                    : `Trận đấu kết thúc sau ${duration} giây! Chúc mừng ${winner.name}. Cầm ${winner.weapon} và ${winner.shield}, huyền thoại này đã có ${kills} mạng hạ gục!`;
-                  
-                  setTimeout(() => speakCaster(summary, lang), 1500);
-              }
-          }
+      // Process Audio Events
+      if(data.events && started) {
+        data.events.forEach(ev => {
+          if(ev.type === 'attack') sfx.play(ev.weapon);
+          if(ev.type === 'death') sfx.play('death');
+          if(ev.type === 'win') sfx.play('win');
+        });
       }
-      else {
-          logCountRef.current = 0;
-          if (data.status === 'waiting') hasAnnouncedWin.current = false;
+
+      // Process TTS Logs
+      if(data.logs.length > 0 && started) {
+        const topLog = data.logs[0];
+        if(!spokenLogs.current.has(topLog)) {
+          spokenLogs.current.add(topLog);
+          if(topLog.includes("💀") || topLog.includes("🏆")) {
+            speak(topLog.replace(/[^\p{L}\p{N}\s]/gu, ''), data.config.language, muted);
+          }
+        }
       }
     };
-    return () => { clearInterval(inv); socket.close(); if (window.speechSynthesis) window.speechSynthesis.cancel(); };
-  }, [soundEnabled]);
+    return () => ws.close();
+  }, [started, muted]);
 
-  const draw = (data) => {
-    const ctx = canvasRef.current?.getContext('2d'); if (!ctx || !data.config) return;
-    
-    ctx.fillStyle = data.config.bg; ctx.fillRect(0, 0, data.config.w, data.config.h);
-    
-    if (data.safe_zone) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(30, 41, 59, 0.85)';
-        ctx.fillRect(0, 0, data.config.w, data.config.h);
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.beginPath();
-        ctx.arc(data.safe_zone.x, data.safe_zone.y, data.safe_zone.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.beginPath();
-        ctx.arc(data.safe_zone.x, data.safe_zone.y, data.safe_zone.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-    }
-
-    data.particles?.forEach(p => {
-      if(soundEnabled) { playSFX(p.type); if (Math.random() > 0.6) playSFX('shout'); }
-      ctx.strokeStyle = p.c; ctx.beginPath(); const angle = Math.atan2(p.y2 - p.y1, p.x2 - p.x1);
-      if (p.type === 'slash') { ctx.lineWidth = 5; ctx.arc(p.x2, p.y2, 35, angle - Math.PI/1.5, angle + Math.PI/1.5); }
-      else if (p.type === 'thrust') { ctx.lineWidth = 4; ctx.moveTo(p.x1, p.y1); ctx.lineTo(p.x2, p.y2); }
-      else if (p.type === 'arrow') { ctx.lineWidth = 3; ctx.setLineDash([15, 10]); ctx.moveTo(p.x1, p.y1); ctx.lineTo(p.x2, p.y2); }
-      else if (p.type === 'throw') { ctx.lineWidth = 4; ctx.setLineDash([8, 12]); ctx.moveTo(p.x1, p.y1); ctx.lineTo(p.x2, p.y2); }
-      else if (p.type === 'bash') { ctx.lineWidth = 8; ctx.arc(p.x2, p.y2, 40, 0, Math.PI*2); }
-      ctx.stroke(); ctx.setLineDash([]);
-    });
-
-    data.players?.forEach(p => {
-      if (p.hp <= 0) return;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.range, 0, Math.PI*2); ctx.strokeStyle = `rgba(255, 255, 255, 0.05)`; ctx.lineWidth = 1; ctx.stroke();
-      if(p.min_rng > 0) { ctx.beginPath(); ctx.arc(p.x, p.y, p.min_rng, 0, Math.PI*2); ctx.strokeStyle = `rgba(255, 100, 100, 0.05)`; ctx.stroke(); }
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)'; ctx.strokeStyle = p.color; ctx.lineWidth = 2;
-      ctx.strokeRect(p.x-25, p.y-30, 50, 55); ctx.fillRect(p.x-25, p.y-30, 50, 55);
-      ctx.font = '22px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = 'white';
-      ctx.fillText(`${p.icon}${p.s_icon}`, p.x, p.y+10);
-      ctx.font = 'bold 10px sans-serif'; ctx.fillText(p.name, p.x, p.y-15);
-      ctx.fillStyle = '#444'; ctx.fillRect(p.x-20, p.y+15, 40, 5);
-      ctx.fillStyle = p.hp > 250 ? '#22c55e' : p.hp > 100 ? '#f59e0b' : '#ef4444';
-      ctx.fillRect(p.x-20, p.y+15, Math.max(0, (p.hp/500)*40), 5);
-    });
-  };
-
-  const call = (path, body, method='POST') => fetch(`${URL}${path}`, { method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : null }).then(r => r.json());
-
-  return (
-    <div className={`bg-slate-950 text-slate-100 p-2 md:p-4 font-sans flex flex-col items-center overflow-hidden ${isPlaying ? 'h-screen' : 'min-h-screen'}`}>
-      
-      <div className={`flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full justify-between transition-all ${isPlaying ? 'mb-2 px-2 max-w-full' : 'mb-4 md:mb-8 max-w-7xl'}`}>
-        <div className="flex items-center gap-4">
-            <h1 className="text-2xl md:text-4xl font-black text-yellow-500 uppercase tracking-tighter drop-shadow-md">{state.config?.title || 'ARENA'}</h1>
-            <label className="text-[10px] md:text-xs text-slate-500 cursor-pointer border border-slate-800 p-1 md:p-2 rounded hover:text-yellow-500">
-            <input type="checkbox" className="hidden" onChange={e => {
-                if (e.target.checked && prompt("Pass Host:") === "dev123") setIsHost(true);
-                else { e.target.checked = false; setIsHost(false); }
-            }} /> ⚙️ HOST
-            </label>
-        </div>
-        <button className={`text-xs p-2 font-bold rounded-lg transition-all border ${soundEnabled ? 'bg-green-900 border-green-400 text-green-100' : 'bg-slate-800 border-slate-700 text-slate-400'}`} onClick={() => {
-            setSoundEnabled(!soundEnabled); 
-            if(!soundEnabled) { playSFX('slash'); speakCaster(state.config?.lang === 'en' ? "Audio enabled!" : "Đã bật giọng nói!", state.config?.lang); } 
-            else { if(window.speechSynthesis) window.speechSynthesis.cancel(); }
-        }}>
-            {soundEnabled ? "🔊 AUDIO: ON" : "🔇 AUDIO: OFF"}
+  if (!started) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-900 text-white flex-col">
+        <h1 className="text-4xl font-bold mb-8 text-yellow-500">AUTO-BATTLER: BATTLE ROYALE</h1>
+        <button onClick={() => { sfx.resume(); setStarted(true); }} className="bg-green-600 hover:bg-green-500 text-2xl font-bold py-4 px-10 rounded-full animate-bounce shadow-[0_0_20px_rgba(34,197,94,0.5)]">
+          BẤM VÀO ĐÂY ĐỂ VÀO GAME (Cho phép Audio)
         </button>
       </div>
+    );
+  }
 
-      {/* HOST PANEL ĐÃ ĐƯỢC CHỐNG SPAM API */}
-      {isHost && !isPlaying && (
-        <div className="mb-6 p-3 md:p-4 bg-slate-900 border border-yellow-600/30 rounded-xl flex flex-col gap-3 w-full max-w-7xl text-xs md:text-sm shadow-xl">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <input className="bg-slate-800 p-2 rounded outline-none" placeholder="Title" value={currentConfig.title} onChange={e=>setLocalConfig({...currentConfig, title: e.target.value})} />
-              <select className="bg-slate-800 p-2 rounded outline-none font-bold" value={currentConfig.lang} onChange={e=>setLocalConfig({...currentConfig, lang: e.target.value})}>
-                  <option value="vi">🇻🇳 Tiếng Việt</option>
-                  <option value="en">🇺🇸 English</option>
-              </select>
-              <input className="bg-slate-800 p-1 rounded h-full w-full cursor-pointer" type="color" value={currentConfig.bg} onChange={e=>setLocalConfig({...currentConfig, bg: e.target.value})} />
-              <div className="flex items-center gap-2">W:<input className="bg-slate-800 p-2 rounded w-full outline-none" type="number" value={currentConfig.w} onChange={e=>setLocalConfig({...currentConfig, w: parseInt(e.target.value)})} /></div>
-              <div className="flex items-center gap-2">H:<input className="bg-slate-800 p-2 rounded w-full outline-none" type="number" value={currentConfig.h} onChange={e=>setLocalConfig({...currentConfig, h: parseInt(e.target.value)})} /></div>
-          </div>
-          {localConfig && (
-              <button className="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-black p-2 rounded animate-pulse" 
-                onClick={() => { 
-                  call('/config', localConfig).then(() => setLocalConfig(null)).catch(err => alert("Lỗi kết nối Server!"));
-                }}>
-                 💾 LƯU CẤU HÌNH VÀ MÀU SẮC LÊN SERVER
-              </button>
-          )}
-        </div>
-      )}
+  if (!gameState) return <div className="flex h-screen items-center justify-center text-xl text-white">Đang tải cấu hình máy chủ...</div>;
 
-      {state.status === 'waiting' && (
-        <div className="max-w-7xl w-full flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-900 p-5 md:p-8 rounded-2xl border border-slate-800 shadow-2xl">
-              <h2 className="text-lg md:text-xl font-bold mb-4 md:mb-6 text-blue-400">1. {state.config?.lang === 'en' ? 'REGISTER' : 'ĐĂNG KÝ'}</h2>
-              <div className="grid gap-4">
-                <input className="bg-slate-800 p-3 md:p-4 rounded-xl outline-none focus:ring-2 ring-blue-500" placeholder={state.config?.lang === 'en' ? 'Your Name...' : 'Tên nhân vật...'} value={reg.name} onChange={e=>setReg({...reg, name:e.target.value})}/>
-                <input className="bg-slate-800 p-3 md:p-4 rounded-xl text-xs md:text-sm outline-none" type="password" placeholder={state.config?.lang === 'en' ? 'Secret Password...' : 'Mật khẩu...'} value={reg.password} onChange={e=>setReg({...reg, password:e.target.value})}/>
-                <div className="flex gap-3">
-                  <select className="bg-slate-800 p-3 flex-1 rounded-xl text-xs md:text-sm outline-none" value={reg.weapon} onChange={e=>setReg({...reg, weapon:e.target.value})}>
-                    {statsWiki && Object.entries(statsWiki.weapons).map(([k, w]) => <option key={k} value={k}>{w.icon} {w.name}</option>)}
-                  </select>
-                  <select className="bg-slate-800 p-3 flex-1 rounded-xl text-xs md:text-sm outline-none" value={reg.shield} onChange={e=>setReg({...reg, shield:e.target.value})}>
-                    {statsWiki && Object.entries(statsWiki.shields).map(([k, s]) => <option key={k} value={k}>{s.icon} {s.name}</option>)}
-                  </select>
-                </div>
-                <button className="mt-2 bg-blue-600 hover:bg-blue-500 font-bold p-4 rounded-xl shadow-lg transition-transform active:scale-95 text-white" onClick={()=>call('/register', reg).then(d=>{ if(d.status==='success') setReg({...reg, name:'', password:''}); else alert(d.message); })}>{state.config?.lang === 'en' ? 'JOIN ARENA' : 'GIA NHẬP SẢNH'}</button>
-              </div>
-            </div>
-            <div className="bg-slate-900 p-5 md:p-8 rounded-2xl border border-slate-800 flex flex-col shadow-2xl">
-              <div className="flex justify-between items-center mb-4 md:mb-6">
-                <h2 className="text-lg md:text-xl font-bold uppercase text-slate-400">LOBBY ({lobby.length})</h2>
-                {isHost && <div className="flex gap-2">
-                    <button className="bg-green-900/50 text-green-300 hover:bg-green-600 px-2 md:px-3 py-1.5 rounded text-[10px] md:text-xs transition-colors" onClick={()=>call('/add-bots')}>🤖 +10 BOTS</button>
-                    <button className="bg-red-900/50 text-red-300 hover:bg-red-600 px-2 md:px-3 py-1.5 rounded text-[10px] md:text-xs transition-colors" onClick={()=>call('/reset-all')}>RESET</button>
-                </div>}
-              </div>
-              <div className="space-y-2 flex-grow overflow-y-auto max-h-[250px] pr-2 custom-scrollbar">
-                {lobby.length === 0 && <p className="text-xs text-slate-600 text-center mt-10">Chưa có ai tham gia...</p>}
-                {lobby.map(p => (
-                  <div key={p.name} className="p-3 bg-slate-800/80 rounded-xl flex justify-between items-center border-l-4" style={{borderColor: p.color}}>
-                    <span className="font-medium text-slate-200 text-sm md:text-base">👤 {p.name}</span> 
-                    {isHost && <button onClick={()=>call(`/player/${p.name}`, null, 'DELETE')} className="text-red-900 font-bold px-2 hover:text-red-500">×</button>}
-                  </div>
-                ))}
-              </div>
-              {isHost && <button className="w-full mt-4 bg-yellow-600 hover:bg-yellow-500 text-black font-black p-4 rounded-xl shadow-lg transition-transform active:scale-95" onClick={()=>call('/phase-strategy')}>NEXT PHASE →</button>}
-            </div>
-          </div>
-          
-          <div className="bg-slate-900 p-5 md:p-8 rounded-2xl border border-slate-800 shadow-2xl">
-            <h2 className="text-sm font-bold text-yellow-500 mb-4 uppercase tracking-widest border-b border-slate-800 pb-3 text-center md:text-left">📖 {state.config?.lang === 'en' ? 'Game Rules & Stats' : 'Tàng Kinh Các (Chỉ số & Luật)'}</h2>
-            {statsWiki ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs md:text-sm text-slate-400">
-                <div className="space-y-2 bg-slate-800/30 p-4 rounded-xl border border-slate-800/50">
-                  <h3 className="text-blue-400 font-black mb-3 text-sm">WEAPONS (HP: 500)</h3>
-                  {Object.entries(statsWiki.weapons).map(([k, w]) => (<div key={k} className="mb-2 pb-2 border-b border-slate-800/50 last:border-0"><span className="text-white font-bold">{w.icon} {w.name}</span>: Tầm ({w.min_rng}-{w.rng}) | Đam {w.dmg} | CD {w.cd}s | Nặng {w.wt}<br/><span className="italic text-[10px] text-slate-500">{w.desc}</span></div>))}
-                </div>
-                <div className="space-y-2 bg-slate-800/30 p-4 rounded-xl border border-slate-800/50">
-                  <h3 className="text-green-400 font-black mb-3 text-sm">SHIELDS</h3>
-                  {Object.entries(statsWiki.shields).map(([k, s]) => (<div key={k} className="mb-2 pb-2 border-b border-slate-800/50 last:border-0"><span className="text-white font-bold">{s.icon} {s.name}</span>: Đỡ {s.def}% đam | Nặng {s.wt}<br/><span className="italic text-[10px] text-slate-500">{s.desc}</span></div>))}
-                </div>
-                <div className="space-y-3 bg-slate-800/30 p-4 rounded-xl border border-slate-800/50 text-white font-mono text-[11px] md:text-xs">
-                  <h3 className="text-purple-400 font-black mb-2 font-sans text-sm">AI TACTICS</h3>
-                  <p>🏃 <span className="text-slate-400">Tốc độ =</span> 180 - Nặng</p>
-                  <p>💥 <span className="text-slate-400">Khắc hệ =</span> <span className="text-yellow-400 font-bold">x2.0 Đam!</span></p>
-                  <p>🔪 <span className="text-slate-400">Dao găm:</span> Chạy lạng lách dích dắc để né tên.</p>
-                  <p>🏹 <span className="text-slate-400">Hit & Run:</span> Lùi nếu bị áp sát. <span className="text-red-400">Bắn Khiên thép bị giảm 50% sát thương gốc!</span></p>
-                  <p>🔥 <span className="text-red-400 font-bold">Berserk Mode:</span> HP {'<'} 30% tự động BỎ NÚP, lao lên khô máu!</p>
-                </div>
-              </div>
-            ) : <p className="text-center text-red-500 animate-pulse font-bold mt-4">⚠️ Lỗi mất kết nối Backend. Vui lòng tắt Server, XÓA file game_config.json & game_data.json, sau đó bật lại!</p>}
-          </div>
-        </div>
-      )}
+  sfx.muted = muted;
 
-      {state.status === 'strategy' && (
-        <div className="max-w-2xl w-full bg-slate-900 p-5 md:p-10 rounded-3xl border-2 border-purple-500/50 shadow-2xl mt-10">
-          <div className="text-center mb-6">
-            <h2 className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">{state.config?.lang === 'en' ? 'STRATEGY TIMER' : 'ĐẾM NGƯỢC CHIẾN THUẬT'}</h2>
-            <div className="text-6xl md:text-8xl font-black text-white tabular-nums tracking-tighter drop-shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-              {Math.floor(state.timer / 60)}:{(state.timer % 60).toString().padStart(2, '0')}
-            </div>
-            {isHost && <button className="mt-4 bg-red-600 hover:bg-red-500 px-6 py-2 rounded-full font-black text-white shadow-lg animate-pulse" onClick={()=>call('/start-now')}>🚀 START NOW</button>}
-          </div>
-          <div className="space-y-4">
-            <input className="w-full bg-slate-800 p-4 rounded-xl border border-slate-700 outline-none" placeholder={state.config?.lang === 'en' ? 'Name...' : 'Tên của bạn...'} value={strat.name} onChange={e=>setStrat({...strat, name:e.target.value})}/>
-            <input className="w-full bg-slate-800 p-4 rounded-xl border border-slate-700 outline-none" type="password" placeholder={state.config?.lang === 'en' ? 'Password...' : 'Mật khẩu...'} value={strat.password} onChange={e=>setStrat({...strat, password:e.target.value})}/>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <select className="w-full bg-slate-800 p-4 rounded-xl text-xs md:text-sm outline-none" value={strat.target_rule} onChange={e=>setStrat({...strat, target_rule:e.target.value})}>
-                <option value="closest">{state.config?.lang === 'en' ? 'Target Closest' : 'Đánh Gần nhất'}</option><option value="lowest_hp">{state.config?.lang === 'en' ? 'Target Weakest' : 'Đánh Yếu nhất'}</option><option value="highest_hp">{state.config?.lang === 'en' ? 'Target Tanker' : 'Đánh Trâu nhất'}</option><option value="counter">{state.config?.lang === 'en' ? 'Target Synergy' : 'Đánh Khắc hệ'}</option>
-              </select>
-              <select className="w-full bg-slate-800 p-4 rounded-xl text-xs md:text-sm outline-none" value={strat.camp_until} onChange={e=>setStrat({...strat, camp_until:parseInt(e.target.value)})}>
-                <option value="99">{state.config?.lang === 'en' ? 'Full Attack' : 'Đánh ngay từ đầu'}</option><option value="5">{state.config?.lang === 'en' ? 'Camp to Top 5' : 'Núp tới Top 5'}</option><option value="3">{state.config?.lang === 'en' ? 'Camp to Top 3' : 'Núp tới Top 3'}</option><option value="2">{state.config?.lang === 'en' ? 'Camp to Final 2' : 'Núp tới Chung Kết'}</option>
-              </select>
-            </div>
-            <button className="w-full mt-4 bg-purple-600 hover:bg-purple-500 font-black text-white p-5 rounded-2xl shadow-xl transition-all active:scale-95" onClick={()=>call('/update-strategy', strat).then(d=> alert(d.status==='success' ? "LOCKED!" : d.message))}>{state.config?.lang === 'en' ? 'SAVE STRATEGY' : 'KHÓA CHIẾN THUẬT'}</button>
-          </div>
-        </div>
-      )}
+  return (
+    // FIX TỤT MAP: Dùng overflow-hidden cứng ở thẻ cha cao nhất khi playing
+    <div className={`w-full bg-gray-900 text-white flex flex-col ${gameState.phase === 'playing' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+      
+      {/* Header */}
+      <header className="shrink-0 bg-gray-800 p-3 shadow-md flex justify-between items-center z-10 relative border-b border-gray-700">
+        <h1 className="text-2xl font-bold text-yellow-400">{gameState.config.room_name}</h1>
+        <button onClick={() => setMuted(!muted)} className={`p-2 rounded font-bold ${muted ? 'bg-red-600' : 'bg-green-600'}`}>
+          {muted ? "🔇 TẮT ÂM" : "🔊 BẬT ÂM"}
+        </button>
+      </header>
 
-      {isPlaying && state.config && (
-        <div className="flex flex-col lg:flex-row gap-4 w-full max-w-full flex-grow overflow-hidden pb-2 px-2">
-          
-          <div className="flex-grow relative bg-black rounded-2xl border-[4px] border-slate-800 shadow-2xl flex justify-center items-center overflow-hidden">
-            <canvas ref={canvasRef} width={state.config.w} height={state.config.h} className="w-full h-full object-contain block drop-shadow-2xl" />
-            
-            {state.status === 'finished' && (
-              <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-500 z-50">
-                <h2 className="text-5xl md:text-8xl font-black text-yellow-500 mb-2 italic tracking-tighter leading-none">THE CHAMPION</h2>
-                <div className="text-4xl md:text-6xl font-bold mb-6 text-white uppercase border-b-4 border-yellow-500 pb-2">{state.winner_info?.name}</div>
-                {isHost && (
-                  <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                      <button className="bg-blue-600 hover:bg-blue-500 px-10 py-4 rounded-full font-black text-white shadow-2xl" onClick={()=>call('/rematch')}>REMATCH</button>
-                      <button className="bg-red-900 hover:bg-red-700 px-6 py-4 rounded-full font-bold text-sm shadow-xl" onClick={()=>call('/reset-all')}>RESET ALL</button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-slate-900 p-4 rounded-2xl w-full lg:w-96 flex-shrink-0 flex flex-col border border-slate-800 shadow-xl overflow-hidden h-[30vh] lg:h-full">
-             <h3 className="font-bold text-red-500 mb-2 uppercase text-center text-[10px] tracking-widest opacity-80 border-b border-slate-800 pb-2">LIVE COMMENTARY</h3>
-             <div className="flex-grow overflow-y-auto space-y-2 flex flex-col-reverse font-mono text-[10px] md:text-xs leading-relaxed pr-1 custom-scrollbar">
-                {[...(state.logs || [])].reverse().map((l, i) => <div key={i} className={`p-2 md:p-3 rounded-lg border-l-4 ${l.includes('💀') || l.includes('🏆') || l.includes('🔥') || l.includes('☠️') || l.includes('⚠️') ? 'bg-red-950/40 border-red-600 text-red-200' : 'bg-slate-800/80 border-slate-600 text-slate-300'}`}>{l}</div>)}
-             </div>
-          </div>
-        </div>
-      )}
+      {/* Main Content (Thêm min-h-0 để chống phình flex child) */}
+      <main className={`flex-1 w-full flex ${gameState.phase === 'playing' ? 'min-h-0 overflow-hidden' : ''}`}>
+        {gameState.phase === 'waiting' && <Phase1 gameState={gameState} />}
+        {gameState.phase === 'strategy' && <Phase2 gameState={gameState} />}
+        {gameState.phase === 'playing' && <Phase3 gameState={gameState} />}
+        {gameState.phase === 'finished' && <PhaseFinished gameState={gameState} />}
+      </main>
     </div>
   );
 }
-export default App;
+
+// --- PHASE 1: LOBBY & HOST ---
+function Phase1({ gameState }) {
+  const[name, setName] = useState('');
+  const [pwd, setPwd] = useState('');
+  const[weapon, setWeapon] = useState('sword');
+  const [shield, setShield] = useState('wood_shield');
+  const [hostPwd, setHostPwd] = useState('');
+
+  const [localConfig, setLocalConfig] = useState(gameState.config);
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!name || !pwd) return alert("Nhập tên và mật khẩu!");
+    const res = await fetch(`${API_URL}/register`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ name, pwd, weapon, shield })
+    });
+    const d = await res.json();
+    if(d.error) alert(d.error); else alert("Đăng ký thành công!");
+  };
+
+  const saveConfig = async () => {
+    await fetch(`${API_URL}/config`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(localConfig)
+    });
+    alert("Đã lưu cấu hình lên Server!");
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto">
+      {/* Cột 1: Đăng ký */}
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
+        <h2 className="text-xl font-bold mb-4 text-blue-400">1. Đăng ký tham gia</h2>
+        <form onSubmit={handleRegister} className="flex flex-col gap-3">
+          <input className="p-2 bg-gray-700 rounded" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
+          <input className="p-2 bg-gray-700 rounded" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
+          
+          <label className="text-sm text-gray-400 mt-2">Vũ khí</label>
+          <select className="p-2 bg-gray-700 rounded" value={weapon} onChange={e=>setWeapon(e.target.value)}>
+            {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
+          </select>
+
+          <label className="text-sm text-gray-400 mt-2">Khiên</label>
+          <select className="p-2 bg-gray-700 rounded" value={shield} onChange={e=>setShield(e.target.value)}>
+            {Object.entries(SHIELDS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
+          </select>
+
+          <button className="bg-blue-600 hover:bg-blue-500 py-3 mt-4 rounded font-bold shadow-lg">GHI DANH LÊN BẢNG</button>
+        </form>
+
+        <div className="mt-8 border-t border-gray-700 pt-4">
+          <h3 className="font-bold text-green-400 mb-2">Người đã vào phòng ({Object.keys(gameState.players).length}):</h3>
+          <div className="flex flex-wrap gap-2">
+            {Object.values(gameState.players).map(p => (
+               <span key={p.name} className="px-2 py-1 bg-gray-700 rounded text-sm">{p.name} {WEAPONS[p.weapon].e}{SHIELDS[p.shield].e}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Cột 2: Wiki */}
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
+        <h2 className="text-xl font-bold mb-4 text-yellow-400">📖 Bách khoa toàn thư</h2>
+        <div className="text-sm space-y-4">
+          <div>
+            <h3 className="font-bold text-red-400 border-b border-gray-600 pb-1">Vũ Khí</h3>
+            <ul className="mt-2 space-y-1">
+              {Object.values(WEAPONS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đam {v.d} | Hồi {v.cd} | Tầm {v.r} | Nặng {v.w}</li>)}
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-400 border-b border-gray-600 pb-1">Khiên (Armor)</h3>
+            <ul className="mt-2 space-y-1">
+              {Object.values(SHIELDS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đỡ {v.b} đam | Nặng {v.w}</li>)}
+            </ul>
+          </div>
+          <div className="bg-gray-700 p-3 rounded">
+            <p>🏃 <b>Tốc chạy:</b> Càng nặng đi càng chậm.</p>
+            <p>💥 <b>Khắc hệ (Đam x2):</b> Dao/Kiếm/Cung {`->`} Gỗ | Giáo/Búa {`->`} Thép | Kiếm/Giáo/Cung {`->`} Nhỏ.</p>
+            <p className="text-red-300">⚠️ Ngoại lệ: Cung bắn Khiên Thép bị giảm 50% Đam gốc.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Cột 3: Host Panel */}
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
+        <h2 className="text-xl font-bold mb-4 text-purple-400">👑 Bảng điều khiển Host</h2>
+        <input className="p-2 w-full bg-gray-700 rounded mb-4" placeholder="Nhập pass Host (dev123) để mở khóa" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        
+        {hostPwd === 'dev123' && (
+          <div className="flex flex-col gap-3 animate-fade-in">
+            <input className="p-2 bg-gray-700 rounded" value={localConfig.room_name} onChange={e=>setLocalConfig({...localConfig, room_name: e.target.value})} placeholder="Tên phòng" />
+            <div className="flex gap-2">
+              <input type="number" className="p-2 bg-gray-700 rounded w-1/2" value={localConfig.map_width} onChange={e=>setLocalConfig({...localConfig, map_width: parseInt(e.target.value)})} title="Rộng Map"/>
+              <input type="number" className="p-2 bg-gray-700 rounded w-1/2" value={localConfig.map_height} onChange={e=>setLocalConfig({...localConfig, map_height: parseInt(e.target.value)})} title="Dài Map"/>
+            </div>
+            <div className="flex gap-2">
+              <input type="color" className="p-1 bg-gray-700 rounded w-1/2 h-10 cursor-pointer" value={localConfig.bg_color} onChange={e=>setLocalConfig({...localConfig, bg_color: e.target.value})} title="Màu nền" />
+              <select className="p-2 bg-gray-700 rounded w-1/2" value={localConfig.language} onChange={e=>setLocalConfig({...localConfig, language: e.target.value})}>
+                <option value="vi">Tiếng Việt</option><option value="en">English</option>
+              </select>
+            </div>
+            <button onClick={saveConfig} className="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold">💾 LƯU CẤU HÌNH</button>
+            <hr className="border-gray-600 my-2" />
+            <button onClick={()=>fetch(`${API_URL}/bots`,{method:'POST'})} className="bg-gray-600 hover:bg-gray-500 py-2 rounded">🤖 Add 10 Bots</button>
+            <button onClick={()=>fetch(`${API_URL}/phase/strategy`,{method:'POST'})} className="bg-red-600 hover:bg-red-500 py-3 rounded font-bold text-lg mt-2 animate-pulse">🔥 START GAME -> LÊN CHIẾN THUẬT</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- PHASE 2: STRATEGY ---
+function Phase2({ gameState }) {
+  const [name, setName] = useState('');
+  const[pwd, setPwd] = useState('');
+  const [targetRule, setTargetRule] = useState('nearest');
+  const [campRule, setCampRule] = useState('attack');
+  const [hostPwd, setHostPwd] = useState('');
+
+  const saveTactics = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`${API_URL}/strategy`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ name, pwd, target_rule: targetRule, camp_rule: campRule })
+    });
+    const d = await res.json();
+    if(d.error) alert(d.error); else alert("Cài AI thành công!");
+  };
+
+  const forceStart = async () => {
+    if (hostPwd !== 'dev123') return alert("Sai mật khẩu Host!");
+    await fetch(`${API_URL}/phase/playing`, { method: "POST" });
+  };
+
+  return (
+    <div className="flex flex-col w-full items-center p-8 overflow-y-auto">
+      <h2 className="text-4xl font-bold mb-2 text-red-500">CHUẨN BỊ CHIẾN ĐẤU</h2>
+      <div className="text-6xl font-mono text-yellow-400 mb-6 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">
+        {gameState.timer}s
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+        <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-xl font-bold mb-4 text-center text-blue-400">Tùy Chỉnh AI (Bí mật)</h3>
+            <form onSubmit={saveTactics} className="flex flex-col gap-4">
+              <input className="p-2 bg-gray-700 rounded" placeholder="Tên của bạn" value={name} onChange={e=>setName(e.target.value)} />
+              <input className="p-2 bg-gray-700 rounded" placeholder="Mật khẩu" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
+              
+              <div>
+                <label className="text-sm text-gray-400">Mục tiêu ưu tiên</label>
+                <select className="p-2 bg-gray-700 rounded w-full" value={targetRule} onChange={e=>setTargetRule(e.target.value)}>
+                  <option value="nearest">Gần nhất</option>
+                  <option value="lowest_hp">Yếu HP nhất (Móc lốp)</option>
+                  <option value="tankiest">Trâu HP nhất (Diệt boss)</option>
+                  <option value="counter">Kẻ bị mình khắc hệ</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-400">Chiến thuật sinh tồn</label>
+                <select className="p-2 bg-gray-700 rounded w-full" value={campRule} onChange={e=>setCampRule(e.target.value)}>
+                  <option value="attack">Khô máu ngay từ đầu</option>
+                  <option value="top5">Núp lùm đến Top 5</option>
+                  <option value="top3">Núp lùm đến Top 3</option>
+                  <option value="top2">Núp lùm đến Top 2</option>
+                </select>
+              </div>
+              <button className="bg-green-600 hover:bg-green-500 py-3 mt-2 rounded font-bold shadow-[0_0_15px_rgba(22,163,74,0.4)]">
+                LƯU CHỈ THỊ AI
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 p-8 rounded-xl border border-purple-500 shadow-2xl flex flex-col justify-center">
+          <h3 className="text-xl font-bold mb-4 text-center text-purple-400">👑 Quyền Host</h3>
+          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược.</p>
+          <input className="p-3 bg-gray-700 rounded mb-4 text-center text-lg" placeholder="Nhập Pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+          {hostPwd === 'dev123' && (
+            <button onClick={forceStart} className="bg-red-600 hover:bg-red-500 py-4 px-6 rounded font-bold text-white uppercase tracking-wider animate-pulse shadow-[0_0_20px_rgba(220,38,38,0.6)]">
+              ⏩ Bỏ qua & Vào Game Luôn
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- PHASE 3: PLAYING (CANVAS MAP + CASTER PANEL) ---
+function Phase3({ gameState }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cw = gameState.config.map_width;
+    const ch = gameState.config.map_height;
+    const z = gameState.zone;
+    
+    // LAYER 1: NỀN BÊN NGOÀI BO (XÁM MẶC ĐỊNH)
+    ctx.fillStyle = '#1F2937'; // Tailwind gray-800
+    ctx.fillRect(0, 0, cw, ch);
+
+    // LAYER 2: NỀN BÊN TRONG BO (MÀU CHỈ ĐỊNH CỦA HOST)
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
+    ctx.fillStyle = gameState.config.bg_color;
+    ctx.fill();
+
+    // LAYER 3: KẺ LƯỚI GRID (Vẽ đè lên toàn map)
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for(let i=0; i<cw; i+=100) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); ctx.stroke(); }
+    for(let i=0; i<ch; i+=100) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); ctx.stroke(); }
+
+    // LAYER 4: VIỀN CỦA VÒNG BO ĐỎ
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
+    ctx.strokeStyle = '#EF4444';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // LAYER 5: VÒNG TRÒN TẦM ĐÁNH CỦA NHÂN VẬT
+    Object.values(gameState.players).forEach(p => {
+      if (!p.alive) return;
+      const w_data = WEAPONS[p.weapon];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, w_data.max_rng, 0, Math.PI*2);
+      ctx.fillStyle = p.hp < 150 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(59, 130, 246, 0.05)'; 
+      ctx.fill(); 
+      ctx.strokeStyle = p.hp < 150 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // LAYER 6: ĐƯỜNG ĐẠN & HIỆU ỨNG CHIẾN ĐẤU
+    gameState.projectiles.forEach(p => {
+      ctx.beginPath();
+      if(p.type === 'melee') {
+        ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty);
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = p.life * 2; ctx.stroke();
+      } else {
+        ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+        ctx.fillStyle = p.type === 'dagger' ? '#9CA3AF' : p.type === 'bow' ? '#FDE047' : '#60A5FA';
+        ctx.fill();
+      }
+    });
+
+    // LAYER 7: THẺ BÀI NHÂN VẬT CHÍNH
+    Object.values(gameState.players).forEach(p => {
+      if (!p.alive) {
+        // Vẽ Bia mộ cho kẻ thù
+        ctx.fillStyle = '#4B5563'; 
+        ctx.fillRect(p.x - 15, p.y - 15, 30, 30);
+        ctx.fillStyle = 'red'; ctx.font = '20px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('❌', p.x, p.y + 7);
+        return;
+      }
+
+      const isBerserk = p.hp < 150;
+      const cardW = 70;
+      const cardH = 80;
+      const cx = p.x - cardW / 2;
+      const cy = p.y - cardH / 2;
+
+      // Card Box (Thân thẻ)
+      ctx.fillStyle = '#1F2937';
+      ctx.fillRect(cx, cy, cardW, cardH);
+      ctx.strokeStyle = isBerserk ? '#EF4444' : '#FBBF24';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx, cy, cardW, cardH);
+
+      // Tên Người Chơi
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      const shortName = p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name;
+      ctx.fillText(shortName, p.x, cy + 16);
+
+      // Emojis Vũ Khí & Khiên
+      ctx.font = '22px sans-serif';
+      ctx.fillText(WEAPONS[p.weapon].e, p.x - 14, cy + 45);
+      ctx.fillText(SHIELDS[p.shield].e, p.x + 14, cy + 45);
+
+      // Thanh Máu
+      const hpBoxX = cx + 5;
+      const hpBoxY = cy + 58;
+      const hpBoxW = cardW - 10;
+      const hpBoxH = 12;
+
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(hpBoxX, hpBoxY, hpBoxW, hpBoxH);
+
+      ctx.fillStyle = isBerserk ? '#EF4444' : '#22C55E';
+      const hpPct = Math.max(0, p.hp / p.max_hp);
+      ctx.fillRect(hpBoxX, hpBoxY, hpBoxW * hpPct, hpBoxH);
+
+      ctx.fillStyle = 'white';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 9);
+    });
+
+  }, [gameState]);
+
+  return (
+    // FIX TỤT MAP: w-full h-full min-h-0 cho cả cụm bọc ngoài
+    <div className="flex w-full h-full overflow-hidden min-h-0">
+      
+      {/* VÙNG CHỨA MAP BÊN TRÁI */}
+      <div className="flex-1 bg-[#0b0f19] relative flex items-center justify-center p-2 min-h-0 border-r border-gray-700">
+        <canvas 
+          ref={canvasRef} 
+          width={gameState.config.map_width} 
+          height={gameState.config.map_height} 
+          // CỐT LÕI NẰM Ở ĐÂY: object-contain scale bản đồ vào chính giữa không làm tràn layout
+          className="w-full h-full object-contain rounded shadow-[0_0_25px_rgba(0,0,0,0.8)]"
+        />
+        
+        {/* Radar Info Box */}
+        <div className="absolute top-4 left-4 bg-gray-900/90 p-3 rounded border border-gray-600 font-mono text-lg text-white font-bold shadow-lg shadow-black">
+          Người sống: <span className="text-yellow-400">{Object.values(gameState.players).filter(p=>p.alive).length}</span> | 
+          Vòng bo: <span className="text-red-400">{Math.floor(gameState.zone.r)}px</span>
+        </div>
+      </div>
+
+      {/* Caster Panel BÊN PHẢI (Không bị tràn/lệch) */}
+      <div className="w-96 bg-gray-800 flex flex-col shrink-0 h-full min-h-0">
+        <div className="p-3 bg-gray-900 font-bold border-b border-gray-700 text-purple-400 flex items-center gap-2">
+          🎙️ Caster Panel (Live)
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col-reverse">
+          {gameState.logs.map((log, i) => (
+            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : 'border-blue-500 bg-gray-700'}`}>
+              {log}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- PHASE FINISHED ---
+function PhaseFinished({ gameState }) {
+  const winner = Object.values(gameState.players).find(p => p.alive);
+  return (
+    <div className="flex w-full items-center justify-center flex-col min-h-0 overflow-y-auto p-8">
+      <div className="bg-gray-800 p-12 rounded-2xl border-4 border-yellow-500 text-center shadow-[0_0_50px_rgba(234,179,8,0.5)]">
+        <div className="text-8xl mb-6">🏆</div>
+        <h2 className="text-5xl font-bold text-yellow-400 mb-4">{winner ? winner.name : "HÒA NHAU"}</h2>
+        <p className="text-xl text-gray-300">Đã sống sót cuối cùng trong Battle Royale!</p>
+        
+        {winner && (
+          <div className="mt-8 bg-gray-900 p-6 rounded-xl text-left inline-block border border-gray-700 shadow-inner">
+            <h3 className="text-green-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">Thông số nhà vô địch:</h3>
+            <p className="text-lg mb-2">Trang bị: {WEAPONS[winner.weapon].e} {WEAPONS[winner.weapon].n} + {SHIELDS[winner.shield].e} {SHIELDS[winner.shield].n}</p>
+            <p className="text-lg mb-2">Máu còn lại: <strong className="text-green-400">{Math.floor(winner.hp)} / 500</strong></p>
+            <p className="text-lg mb-2">AI Mục tiêu: <strong className="text-yellow-400">{winner.target_rule}</strong></p>
+            <p className="text-lg">AI Sinh tồn: <strong className="text-yellow-400">{winner.camp_rule}</strong></p>
+          </div>
+        )}
+      </div>
+      <button onClick={()=>fetch(`${API_URL}/phase/waiting`,{method:'POST'})} className="mt-8 bg-gray-700 hover:bg-gray-600 px-8 py-3 rounded-full font-bold text-xl shadow-lg">Trở về sảnh</button>
+    </div>
+  );
+}
