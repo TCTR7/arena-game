@@ -260,13 +260,36 @@ export default function App() {
   sfx.muted = muted;
   humanVoice.muted = muted;
 
+  // Lấy thống kê cho Header
+  const aliveCount = Object.values(gameState.players || {}).filter(p=>p.alive).length;
+  const zoneRadius = Math.floor(gameState.zone?.r || 0);
+  const isPlaying = gameState.phase === 'playing';
+
   return (
     <div className={`w-full bg-gray-900 text-white flex flex-col ${gameState.phase === 'playing' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+      
+      {/* HEADER ĐÃ ĐƯỢC CHỈNH SỬA: CHÈN KHUNG TRẠNG THÁI VÀO GIỮA */}
       <header className="shrink-0 bg-gray-800 p-3 shadow-md flex justify-between items-center z-10 relative border-b border-gray-700">
-        <h1 className="text-2xl font-bold text-yellow-400">{gameState.config.room_name}</h1>
-        <button onClick={() => setMuted(!muted)} className={`p-2 rounded font-bold ${muted ? 'bg-red-600' : 'bg-green-600'}`}>
-          {muted ? "🔇 TẮT ÂM" : "🔊 BẬT ÂM"}
-        </button>
+        <div className="flex-1">
+            <h1 className="text-2xl font-bold text-yellow-400 truncate">{gameState.config.room_name}</h1>
+        </div>
+
+        {/* THÔNG TIN VÒNG BO NẰM GỌN TRÊN HEADER */}
+        {isPlaying && (
+            <div className="flex-1 flex justify-center">
+                <div className="flex gap-6 bg-gray-900/80 px-5 py-1.5 rounded-full border border-gray-600 font-mono text-base font-bold shadow-inner">
+                    <div>Trạng thái: <span className="text-green-400">{aliveCount} Sống</span></div>
+                    <div className="w-px bg-gray-600"></div> {/* Đường kẻ chia cách */}
+                    <div>Vòng bo: <span className="text-red-400">{zoneRadius}px</span></div>
+                </div>
+            </div>
+        )}
+
+        <div className="flex-1 flex justify-end">
+            <button onClick={() => setMuted(!muted)} className={`p-2 rounded font-bold ${muted ? 'bg-red-600' : 'bg-green-600'}`}>
+            {muted ? "🔇 TẮT ÂM" : "🔊 BẬT ÂM"}
+            </button>
+        </div>
       </header>
 
       <main className={`flex-1 w-full flex ${gameState.phase === 'playing' ? 'min-h-0 overflow-hidden' : ''}`}>
@@ -286,6 +309,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[pwd, setPwd] = useState('');
   const[weapon, setWeapon] = useState('sword');
   const[shield, setShield] = useState('wood_shield');
+
   const[localConfig, setLocalConfig] = useState(gameState.config);
   
   const WEAPONS = gameState.config.weapons;
@@ -324,21 +348,26 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto">
+      
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-blue-400">1. Đăng ký tham gia</h2>
         <form onSubmit={handleRegister} className="flex flex-col gap-3">
           <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
           <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
+          
           <label className="text-sm text-gray-400 mt-2 flex justify-between items-center">
-            <span>Chọn Vũ Khí</span><span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
+            <span>Chọn Vũ Khí</span>
+            <span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
           </label>
           <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={handleWeaponChange}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
+
           <label className="text-sm text-gray-400 mt-2">Chọn Khiên</label>
           <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-blue-500" value={shield} onChange={e=>setShield(e.target.value)}>
             {Object.entries(SHIELDS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
+
           <button className="bg-blue-600 hover:bg-blue-500 py-3 mt-4 rounded font-bold shadow-lg">GHI DANH LÊN BẢNG</button>
         </form>
 
@@ -355,10 +384,12 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-[650px] overflow-y-auto custom-scrollbar">
         <h2 className="text-2xl font-bold mb-4 text-yellow-400 border-b border-gray-600 pb-2">📖 Bách Khoa Cờ Nhân Phẩm</h2>
         <div className="text-sm space-y-6">
+          
           <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-green-500">
             <h3 className="font-bold text-green-400 text-base mb-1">🏃 Tốc Độ Di Chuyển</h3>
             <p>Phụ thuộc vào Độ Nặng trang bị. <br/><b>Tốc độ = Base - (Nặng VK + Nặng Khiên).</b> Càng nhẹ chạy càng nhanh.</p>
           </div>
+
           <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-yellow-500">
             <h3 className="font-bold text-yellow-400 text-base mb-1">🎲 Nhân Phẩm (RNG) & Môi Trường</h3>
             <ul className="list-disc pl-4 mt-1 space-y-1">
@@ -368,6 +399,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               <li><b>Hộp Tiếp Tế (Airdrop):</b> Thỉnh thoảng rớt hộp thuốc. Chạy lại nhặt hồi ngay 150 Máu!</li>
             </ul>
           </div>
+
           <div>
             <h3 className="font-bold text-red-400 text-base border-b border-gray-600 pb-1 mb-2">⚔️ Khắc Hệ (Sát thương x2)</h3>
             <ul className="list-disc pl-4 space-y-1 text-gray-300">
@@ -376,6 +408,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               <li><b className="text-white">Kiếm / Giáo / Cung</b> xuyên thủng <b className="text-blue-300">Khiên Nhỏ</b>.</li>
             </ul>
           </div>
+
           <div>
             <h3 className="font-bold text-yellow-500 text-base border-b border-gray-600 pb-1 mb-2">📊 Bảng Chỉ Số Vũ Khí & Khiên</h3>
             <ul className="mt-2 space-y-2 text-gray-300">
@@ -395,6 +428,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               ))}
             </ul>
           </div>
+
         </div>
       </div>
 
@@ -651,9 +685,11 @@ function Phase3({ gameState, hostPwd }) {
     const ch = gameState.config.map_height;
     const z = gameState.zone;
     
+    // LAYER 1: BÊN NGOÀI BO
     ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
 
+    // LAYER 2: BÊN TRONG BO
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.fillStyle = gameState.config.bg_color;
@@ -693,7 +729,6 @@ function Phase3({ gameState, hostPwd }) {
         ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(34, 197, 94, 0.75)'; 
         ctx.fill();
-        
         ctx.strokeStyle = 'rgba(20, 83, 45, 0.9)'; 
         ctx.lineWidth = 4;
         ctx.setLineDash([15, 20]);
@@ -770,7 +805,6 @@ function Phase3({ gameState, hostPwd }) {
       }
 
       const isBerserk = p.hp < (p.max_hp * 0.3);
-      // ĐÃ FIX: NHẬN BIẾT MẤT MÁU (Flash Red)
       const isFlashing = p.flash_red; 
       
       const cx = p.x - cardW / 2;
@@ -779,7 +813,6 @@ function Phase3({ gameState, hostPwd }) {
       ctx.fillStyle = '#1F2937';
       ctx.fillRect(cx, cy, cardW, cardH);
       
-      // Viền thẻ bài chuyển MÀU ĐỎ DÀY khi bị đánh
       ctx.strokeStyle = isFlashing ? '#ff0000' : (isBerserk ? '#EF4444' : '#FBBF24');
       ctx.lineWidth = isFlashing ? 6 : (isBerserk ? 4 : 2);
       
@@ -788,7 +821,7 @@ function Phase3({ gameState, hostPwd }) {
           ctx.shadowColor = '#ff0000';
       }
       ctx.strokeRect(cx, cy, cardW, cardH);
-      ctx.shadowBlur = 0; // Tắt glow
+      ctx.shadowBlur = 0; 
 
       ctx.fillStyle = 'white';
       ctx.font = 'bold 16px sans-serif';
@@ -869,6 +902,7 @@ function Phase3({ gameState, hostPwd }) {
 
   return (
     <div className="flex w-full h-full overflow-hidden min-h-0">
+      {/* VÙNG MAP BÊN TRÁI */}
       <div className="flex-1 bg-[#0b0f19] relative flex items-center justify-center p-2 min-h-0 border-r border-gray-700">
         <canvas 
           ref={canvasRef} 
@@ -876,10 +910,7 @@ function Phase3({ gameState, hostPwd }) {
           height={gameState.config.map_height} 
           className="w-full h-full object-contain rounded shadow-[0_0_25px_rgba(0,0,0,0.8)]"
         />
-        <div className="absolute top-4 left-4 bg-gray-900/90 p-3 rounded border border-gray-600 font-mono text-lg text-white font-bold shadow-lg shadow-black flex flex-col gap-1">
-          <div>Trạng thái: <span className="text-green-400">{Object.values(gameState.players).filter(p=>p.alive).length} Sống</span></div>
-          <div>Vòng bo: <span className="text-red-400">{Math.floor(gameState.zone.r)}px</span></div>
-        </div>
+        {/* ĐÃ XÓA KHUNG THÔNG TIN Ở ĐÂY */}
       </div>
 
       <div className="w-96 bg-gray-800 flex flex-col shrink-0 h-full min-h-0">
