@@ -48,18 +48,6 @@
             "vfx": "arrow",
             "desc": "Thả diều. Tốc độ khá nhanh."
         },
-        "magic": {
-            "name": "Gậy phép",
-            "icon": "🪄",
-            "color": "#3b82f6",
-            "min_rng": 50,
-            "rng": 160,
-            "dmg": 45,
-            "cd": 2.0,
-            "wt": 15,
-            "vfx": "magic",
-            "desc": "Đam phép nung chảy giáp sắt."
-        },
         "hammer": {
             "name": "Búa tạ",
             "icon": "🔨",
@@ -81,38 +69,23 @@
             "wt": 2,
             "desc": "Siêu nhẹ, tốc độ di chuyển tối đa."
         },
-        "magic_ward": {
-            "name": "Khiên phép",
-            "icon": "🔮",
-            "def": 20,
-            "wt": 10,
-            "desc": "Nhẹ, chống sốc sát thương."
-        },
         "wood_shield": {
             "name": "Khiên gỗ",
             "icon": "🪵",
             "def": 35,
             "wt": 20,
-            "desc": "Khá nặng, phòng thủ ổn."
+            "desc": "Khá nặng, phòng thủ ổn định."
         },
         "steel_shield": {
             "name": "Khiên thép",
             "icon": "🛡️",
-            "def": 55,
-            "wt": 45,
-            "desc": "Nặng, giảm hơn nửa sát thương."
-        },
-        "tower_shield": {
-            "name": "Khiên tháp",
-            "icon": "🧱",
-            "def": 70,
-            "wt": 65,
-            "desc": "Bức tường di động. Biến bạn thành rùa bò."
+            "def": 65,
+            "wt": 60,
+            "desc": "Siêu nặng, biến thành xe tăng bọc thép."
         }
     },
     "synergies": {
         "dagger": [
-            "magic_ward",
             "wood_shield"
         ],
         "sword": [
@@ -121,18 +94,13 @@
         ],
         "spear": [
             "steel_shield",
-            "wood_shield"
+            "buckler"
         ],
         "bow": [
             "buckler",
-            "magic_ward"
-        ],
-        "magic": [
-            "steel_shield",
-            "tower_shield"
+            "wood_shield"
         ],
         "hammer": [
-            "tower_shield",
             "steel_shield"
         ]
     }

@@ -1,141 +1,121 @@
 {
     "players": [
         {
-            "name": "TCT",
-            "password": "12345",
-            "weapon": "spear",
-            "shield": "buckler",
-            "strategy": {
-                "target_rule": "highest_hp",
-                "camp_until": 5
-            }
-        },
-        {
-            "name": "NNT",
-            "password": "12345",
-            "weapon": "bow",
-            "shield": "buckler",
-            "strategy": {
-                "target_rule": "counter",
-                "camp_until": 99
-            }
-        },
-        {
-            "name": "Bot_Yasuo",
+            "name": "Bot_Dev_1",
             "password": "bot",
-            "weapon": "dagger",
-            "shield": "buckler",
-            "strategy": {
-                "target_rule": "closest",
-                "camp_until": 99
-            }
-        },
-        {
-            "name": "Bot_Garen",
-            "password": "bot",
-            "weapon": "bow",
-            "shield": "magic_ward",
-            "strategy": {
-                "target_rule": "lowest_hp",
-                "camp_until": 3
-            }
-        },
-        {
-            "name": "Bot_Ashe",
-            "password": "bot",
-            "weapon": "bow",
+            "weapon": "hammer",
             "shield": "wood_shield",
             "strategy": {
-                "target_rule": "counter",
-                "camp_until": 99
-            }
-        },
-        {
-            "name": "Bot_Ahri",
-            "password": "bot",
-            "weapon": "sword",
-            "shield": "buckler",
-            "strategy": {
-                "target_rule": "highest_hp",
-                "camp_until": 2
-            }
-        },
-        {
-            "name": "Bot_Darius",
-            "password": "bot",
-            "weapon": "sword",
-            "shield": "steel_shield",
-            "strategy": {
                 "target_rule": "closest",
                 "camp_until": 3
-            }
+            },
+            "color": "#fc48c0"
         },
         {
-            "name": "Bot_Zed",
+            "name": "Bot_Dev_2",
             "password": "bot",
-            "weapon": "dagger",
-            "shield": "tower_shield",
-            "strategy": {
-                "target_rule": "counter",
-                "camp_until": 2
-            }
-        },
-        {
-            "name": "Bot_Lux",
-            "password": "bot",
-            "weapon": "sword",
-            "shield": "steel_shield",
-            "strategy": {
-                "target_rule": "closest",
-                "camp_until": 3
-            }
-        },
-        {
-            "name": "Bot_LeeSin",
-            "password": "bot",
-            "weapon": "bow",
+            "weapon": "hammer",
             "shield": "buckler",
             "strategy": {
-                "target_rule": "closest",
-                "camp_until": 99
-            }
+                "target_rule": "counter",
+                "camp_until": 5
+            },
+            "color": "#c753f9"
         },
         {
-            "name": "Bot_Vayne",
+            "name": "Bot_Dev_3",
             "password": "bot",
             "weapon": "spear",
-            "shield": "steel_shield",
+            "shield": "wood_shield",
             "strategy": {
                 "target_rule": "highest_hp",
                 "camp_until": 5
-            }
+            },
+            "color": "#e3fe57"
         },
         {
-            "name": "Bot_Malphite",
+            "name": "Bot_Dev_4",
             "password": "bot",
-            "weapon": "spear",
-            "shield": "steel_shield",
-            "strategy": {
-                "target_rule": "closest",
-                "camp_until": 2
-            }
-        },
-        {
-            "name": "TCT1",
-            "password": "11111",
-            "weapon": "sword",
-            "shield": "steel_shield",
+            "weapon": "bow",
+            "shield": "buckler",
             "strategy": {
                 "target_rule": "lowest_hp",
                 "camp_until": 3
             },
-            "color": "#6ef70b"
+            "color": "#f17a35"
+        },
+        {
+            "name": "Bot_Dev_5",
+            "password": "bot",
+            "weapon": "spear",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "counter",
+                "camp_until": 5
+            },
+            "color": "#f27734"
+        },
+        {
+            "name": "Bot_Dev_6",
+            "password": "bot",
+            "weapon": "dagger",
+            "shield": "buckler",
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 5
+            },
+            "color": "#c833f4"
+        },
+        {
+            "name": "Bot_Dev_7",
+            "password": "bot",
+            "weapon": "hammer",
+            "shield": "wood_shield",
+            "strategy": {
+                "target_rule": "closest",
+                "camp_until": 3
+            },
+            "color": "#22e7bf"
+        },
+        {
+            "name": "Bot_Dev_8",
+            "password": "bot",
+            "weapon": "bow",
+            "shield": "wood_shield",
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 5
+            },
+            "color": "#5e76fa"
+        },
+        {
+            "name": "Bot_Dev_9",
+            "password": "bot",
+            "weapon": "spear",
+            "shield": "wood_shield",
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 5
+            },
+            "color": "#4df244"
+        },
+        {
+            "name": "Bot_Dev_10",
+            "password": "bot",
+            "weapon": "dagger",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 5
+            },
+            "color": "#97f715"
         }
     ],
     "config": {
-        "title": "\u0110\u1ea4U TR\u01af\u1edcNG DEV",
-        "bg": "#0f291e",
-        "w": 800,
-        "h": 600
+        "title": "ULTIMATE ARENA",
+        "bg": "#290f18",
+        "w": 1200,
+        "h": 900,
+        "lang": "vi"
     }
 }
