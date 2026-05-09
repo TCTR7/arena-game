@@ -1,16 +1,16 @@
 {
     "weapons": {
         "dagger": {
-            "name": "Dao găm",
+            "name": "Phi dao",
             "icon": "🗡️",
             "color": "#94a3b8",
-            "min_rng": 0,
-            "rng": 35,
-            "dmg": 12,
-            "cd": 0.3,
-            "wt": 2,
-            "vfx": "slash",
-            "desc": "Tốc độ chém bàn thờ. Chuyên ám sát."
+            "min_rng": 40,
+            "rng": 120,
+            "dmg": 14,
+            "cd": 0.4,
+            "wt": 0,
+            "vfx": "throw",
+            "desc": "Phóng dao dích dắc, siêu lẹ."
         },
         "sword": {
             "name": "Kiếm dài",
@@ -22,7 +22,7 @@
             "cd": 1.0,
             "wt": 15,
             "vfx": "slash",
-            "desc": "Cân bằng công thủ."
+            "desc": "Cận chiến cân bằng."
         },
         "spear": {
             "name": "Trường giáo",
@@ -34,19 +34,19 @@
             "cd": 1.2,
             "wt": 20,
             "vfx": "thrust",
-            "desc": "Giữ khoảng cách, đâm thấu khiên."
+            "desc": "Đâm thấu giáp từ xa."
         },
         "bow": {
             "name": "Cung tiễn",
             "icon": "🏹",
             "color": "#22c55e",
-            "min_rng": 70,
-            "rng": 180,
+            "min_rng": 80,
+            "rng": 220,
             "dmg": 18,
             "cd": 0.8,
             "wt": 10,
             "vfx": "arrow",
-            "desc": "Thả diều. Tốc độ khá nhanh."
+            "desc": "Thả diều, vô dụng với Khiên thép."
         },
         "hammer": {
             "name": "Búa tạ",
@@ -58,7 +58,7 @@
             "cd": 2.2,
             "wt": 40,
             "vfx": "bash",
-            "desc": "Đập nát mọi thứ nhưng cực nặng."
+            "desc": "Xáp lá cà đập nát mọi thứ."
         }
     },
     "shields": {
@@ -67,21 +67,21 @@
             "icon": "🥏",
             "def": 5,
             "wt": 2,
-            "desc": "Siêu nhẹ, tốc độ di chuyển tối đa."
+            "desc": "Chạy cực nhanh."
         },
         "wood_shield": {
             "name": "Khiên gỗ",
             "icon": "🪵",
             "def": 35,
             "wt": 20,
-            "desc": "Khá nặng, phòng thủ ổn định."
+            "desc": "Phòng thủ ổn."
         },
         "steel_shield": {
             "name": "Khiên thép",
             "icon": "🛡️",
             "def": 65,
             "wt": 60,
-            "desc": "Siêu nặng, biến thành xe tăng bọc thép."
+            "desc": "Kháng tên 100%, lết như rùa."
         }
     },
     "synergies": {
