@@ -1,7 +1,7 @@
 {
     "room_name": "Giải Đấu Cờ Nhân Phẩm",
-    "map_width": 1200,
-    "map_height": 900,
-    "bg_color": "#168d48",
+    "map_width": 2000,
+    "map_height": 2000,
+    "bg_color": "#23c768",
     "language": "vi"
 }

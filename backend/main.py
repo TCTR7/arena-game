@@ -18,13 +18,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === CONSTANTS & STATS ===
 WEAPONS = {
     "dagger": {"name": "Dao găm", "min_rng": 40, "max_rng": 120, "dmg": 14, "cd_ticks": 4, "weight": 0, "counters": "wood_shield"},
-    "sword": {"name": "Kiếm dài", "min_rng": 0, "max_rng": 50, "dmg": 25, "cd_ticks": 10, "weight": 15, "counters": ["wood_shield", "buckler"]},
+    "sword": {"name": "Kiếm dài", "min_rng": 0, "max_rng": 85, "dmg": 25, "cd_ticks": 10, "weight": 15, "counters":["wood_shield", "buckler"]},
     "spear": {"name": "Trường giáo", "min_rng": 35, "max_rng": 90, "dmg": 22, "cd_ticks": 12, "weight": 20, "counters":["steel_shield", "buckler"]},
     "bow": {"name": "Cung tiễn", "min_rng": 80, "max_rng": 220, "dmg": 18, "cd_ticks": 8, "weight": 10, "counters":["buckler", "wood_shield"]},
-    "hammer": {"name": "Búa tạ", "min_rng": 0, "max_rng": 45, "dmg": 65, "cd_ticks": 22, "weight": 40, "counters": "steel_shield"}
+    "hammer": {"name": "Búa tạ", "min_rng": 0, "max_rng": 75, "dmg": 65, "cd_ticks": 22, "weight": 40, "counters": "steel_shield"}
 }
 
 SHIELDS = {
@@ -38,19 +37,17 @@ os.makedirs(DATA_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "game_config.json")
 DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
 
-# === STATE MANAGEMENT ===
 class GameState:
     def __init__(self):
-        self.phase = "waiting" # waiting, strategy, playing, finished
+        self.phase = "waiting"
         self.config = {"room_name": "Giải Đấu Cờ Nhân Phẩm", "map_width": 2000, "map_height": 2000, "bg_color": "#052e16", "language": "vi"}
         self.players = {}
         self.logs =[]
-        self.events = [] # For SFX (transient)
+        self.events = []
         self.projectiles =[]
         self.ticks = 0
         self.phase2_timer = 180
         
-        # Red Zone
         self.zone_target_radius = 2000
         self.zone_current_radius = 2000
         self.zone_x = 1000
@@ -89,7 +86,6 @@ class GameState:
 game_state = GameState()
 active_connections: List[WebSocket] =[]
 
-# === MODELS ===
 class ConfigReq(BaseModel):
     room_name: str
     map_width: int
@@ -109,7 +105,9 @@ class StrategyReq(BaseModel):
     target_rule: str
     camp_rule: str
 
-# === API ENDPOINTS ===
+class ForceEndReq(BaseModel):
+    pwd: str
+
 @app.post("/api/config")
 def save_config(req: ConfigReq):
     game_state.config.update(req.dict())
@@ -121,7 +119,6 @@ def register_player(req: RegisterReq):
     if req.name in game_state.players and game_state.players[req.name]["pwd"] != req.pwd:
         return {"error": "Sai mật khẩu"}
     
-    # Random sẵn AI ban đầu. Nếu người chơi không kịp lưu Phase 2 thì sẽ dùng AI ngẫu nhiên này.
     game_state.players[req.name] = {
         "name": req.name, "pwd": req.pwd,
         "weapon": req.weapon, "shield": req.shield,
@@ -189,7 +186,30 @@ def set_phase(phase: str):
         game_state.save_data()
     return {"status": "ok"}
 
-# === WEBSOCKET & ENGINE LOOP ===
+@app.post("/api/force_end")
+def force_end_game(req: ForceEndReq):
+    if req.pwd != "dev123":
+        return {"error": "Sai mật khẩu Host!"}
+    
+    if game_state.phase == "playing":
+        alive_players =[p for p in game_state.players.values() if p["alive"]]
+        if alive_players:
+            # Xếp người máu cao nhất lên đầu
+            alive_players.sort(key=lambda x: x["hp"], reverse=True)
+            winner = alive_players[0]
+            
+            # Giết hết những người còn lại
+            for p in alive_players[1:]:
+                p["hp"] = 0
+                p["alive"] = False
+            
+            game_state.add_log(f"🛑 HOST kết thúc sớm! {winner['name']} thắng nhờ có nhiều máu nhất!", 
+                               f"🛑 HOST forced end! {winner['name']} wins by highest HP!")
+            game_state.events.append({"type": "win"})
+            
+        game_state.phase = "finished"
+    return {"status": "ok"}
+
 async def broadcast():
     if not active_connections: return
     data = {
@@ -206,7 +226,7 @@ async def broadcast():
     for conn in active_connections:
         try: await conn.send_text(msg)
         except: pass
-    game_state.events.clear() # Clear transient events
+    game_state.events.clear()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -242,16 +262,14 @@ def update_game_logic():
     w_map = game_state.config["map_width"]
     h_map = game_state.config["map_height"]
 
-    # --- ZONE LOGIC ---
-    if game_state.ticks % 200 == 0: # Every 20s (200 ticks)
-        game_state.zone_target_radius = max(50, game_state.zone_target_radius - 120)
+    if game_state.ticks % 100 == 0:
+        game_state.zone_target_radius = max(50, game_state.zone_target_radius - 75)
         game_state.add_log("⚠️ Vòng bo đang thu hẹp!", "⚠️ The Red Zone is shrinking!")
 
     if game_state.zone_current_radius > game_state.zone_target_radius:
-        game_state.zone_current_radius -= 2.0 # Smooth shrink
+        game_state.zone_current_radius -= 2.0
 
-    # Process projectiles
-    new_projs = []
+    new_projs =[]
     for proj in game_state.projectiles:
         proj["life"] -= 1
         proj["x"] += proj["vx"]
@@ -270,14 +288,13 @@ def update_game_logic():
         game_state.phase = "finished"
         return
 
-    # BOIDS - Anti-clumping
     repulsion = {p["name"]:[0.0, 0.0] for p in alive_players}
     for i in range(len(alive_players)):
         for j in range(i+1, len(alive_players)):
             p1, p2 = alive_players[i], alive_players[j]
             dx, dy, dist = calc_dist(p1["x"], p1["y"], p2["x"], p2["y"])
-            if dist < 25:
-                force = (25 - dist) / 5
+            if dist < 30:
+                force = (30 - dist) / 5
                 repulsion[p1["name"]][0] -= (dx/dist) * force
                 repulsion[p1["name"]][1] -= (dy/dist) * force
                 repulsion[p2["name"]][0] += (dx/dist) * force
@@ -288,27 +305,22 @@ def update_game_logic():
 
         w_data = WEAPONS[p["weapon"]]
         s_data = SHIELDS[p["shield"]]
-        
-        # Speed calc: max(30, 180 - w - w) * dt(0.05)
         base_speed = max(30, 180 - w_data["weight"] - s_data["weight"]) * 0.05
 
-        # Zone damage & logic
         _, _, dist_to_zone = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
         outside_zone = dist_to_zone > game_state.zone_current_radius
+        
         if outside_zone:
-            p["hp"] -= 0.8 # -0.8 HP/tick
+            p["hp"] -= 0.3 
 
         if p["hp"] <= 0:
             p["hp"] = 0
             p["alive"] = False
-            game_state.add_log(f"☠️ {p['name']} chết ngoài vòng bo!", f"☠️ {p['name']} died in the red zone!")
+            game_state.add_log(f"☠️ {p['name']} gục ngã ngoài vòng bo!", f"☠️ {p['name']} died in the red zone!")
             game_state.events.append({"type": "death"})
             continue
 
-        # Berserk
         is_berserk = p["hp"] < 150
-
-        # Camp rule logic
         is_camping = False
         if not is_berserk:
             c = p["camp_rule"]
@@ -316,16 +328,13 @@ def update_game_logic():
             if c == "top3" and alive_count > 3: is_camping = True
             if c == "top2" and alive_count > 2: is_camping = True
 
-        vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
+        enemies =[e for e in alive_players if e["name"] != p["name"]]
+        min_enemy_hp = min((e["hp"] for e in enemies), default=0)
 
-        # PRIORITY 1: RUN TO ZONE
-        if outside_zone:
-            zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
-            vx += (zx/zdist) * base_speed * 1.5
-        else:
-            # PRIORITY 2: COMBAT/FLEE/WANDER
-            enemies =[e for e in alive_players if e["name"] != p["name"]]
-            target = None
+        nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
+        target = None
+
+        if enemies:
             if p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "tankiest": target = max(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "counter":
@@ -334,82 +343,107 @@ def update_game_logic():
             else:
                 target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
 
-            dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
+        vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
+        panic_zone = outside_zone and (not is_camping or p["hp"] < 250)
 
+        if panic_zone:
+            zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+            vx += (zx/zdist) * base_speed * 1.8
+            vy += (zy/zdist) * base_speed * 1.8
+        else:
             if is_camping:
-                if dist < 150: # Enemy close -> Flee
-                    vx -= (dx/dist) * base_speed
-                else: # Safe -> Wander
-                    p["wander_angle"] += random.uniform(-0.3, 0.3)
-                    vx += math.cos(p["wander_angle"]) * (base_speed * 0.5)
-                    vy += math.sin(p["wander_angle"]) * (base_speed * 0.5)
-            else: # Attacking
-                if dist > w_data["max_rng"]:
-                    # Approach
-                    dir_x, dir_y = dx/dist, dy/dist
-                    if p["weapon"] == "dagger": # Zig-zag
-                        orth_x, orth_y = -dir_y, dir_x
-                        zig = math.sin(game_state.ticks * 0.3) * 2.0
-                        vx += (dir_x + orth_x * zig) * base_speed
+                dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
+                can_tank = outside_zone and p["hp"] > 150 and p["hp"] >= min_enemy_hp
+                
+                if dist_to_enemy < 350:
+                    ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
+                    vx -= (ex/edist) * base_speed * 1.2
+                    vy -= (ey/edist) * base_speed * 1.2 
+                else:
+                    if can_tank:
+                        pass 
                     else:
-                        vx += dir_x * base_speed
-                elif dist < w_data["min_rng"]:
-                    # Retreat (Hit and Run)
-                    vx -= (dx/dist) * base_speed
+                        if outside_zone:
+                            zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+                            vx += (zx/zdist) * base_speed * 0.8
+                            vy += (zy/zdist) * base_speed * 0.8
+                        else:
+                            p["wander_angle"] += random.uniform(-0.5, 0.5)
+                            vx += math.cos(p["wander_angle"]) * (base_speed * 0.4)
+                            vy += math.sin(p["wander_angle"]) * (base_speed * 0.4)
+            else:
+                if target:
+                    dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
+                    
+                    if p["cooldown"] > 0:
+                        if p["weapon"] in["bow", "spear", "dagger"]:
+                            vx -= (dx/dist) * base_speed * 0.8
+                            vy -= (dy/dist) * base_speed * 0.8
+                        else:
+                            if dist > 40:
+                                vx += (dx/dist) * base_speed * 0.6
+                                vy += (dy/dist) * base_speed * 0.6
+                    else:
+                        if dist > w_data["max_rng"]:
+                            dir_x, dir_y = dx/dist, dy/dist
+                            if p["weapon"] == "dagger":
+                                orth_x, orth_y = -dir_y, dir_x
+                                zig = math.sin(game_state.ticks * 0.3) * 2.0
+                                vx += (dir_x + orth_x * zig) * base_speed
+                                vy += (dir_y + orth_y * zig) * base_speed
+                            else:
+                                vx += dir_x * base_speed
+                                vy += dir_y * base_speed
+                        elif dist < w_data["max_rng"] * 0.6 and p["weapon"] in["bow", "spear"]:
+                            vx -= (dx/dist) * base_speed * 0.8
+                            vy -= (dy/dist) * base_speed * 0.8
 
-            # Attack logic
-            if w_data["min_rng"] <= dist <= w_data["max_rng"]:
+        combat_target = target if not is_camping else nearest_enemy
+
+        if combat_target:
+            cx, cy, cdist = calc_dist(p["x"], p["y"], combat_target["x"], combat_target["y"])
+            if w_data["min_rng"] <= cdist <= w_data["max_rng"]:
                 if p["cooldown"] <= 0:
-                    t_shield_data = SHIELDS[target["shield"]]
+                    t_shield_data = SHIELDS[combat_target["shield"]]
                     base_dmg = w_data["dmg"]
+                    if p["weapon"] == "bow" and combat_target["shield"] == "steel_shield": base_dmg /= 2.0
                     
-                    # Exception: Bow vs Steel
-                    if p["weapon"] == "bow" and target["shield"] == "steel_shield":
-                        base_dmg /= 2.0
-
-                    # Counter multiplier
-                    multiplier = 2.0 if is_counter(p["weapon"], target["shield"]) else 1.0
-                    
-                    # Block reduction
+                    multiplier = 2.0 if is_counter(p["weapon"], combat_target["shield"]) else 1.0
                     final_dmg = (base_dmg * multiplier) * (1.0 - t_shield_data["block"])
-                    target["hp"] -= final_dmg
+                    combat_target["hp"] -= final_dmg
                     p["cooldown"] = w_data["cd_ticks"]
 
-                    # SFX & Visuals
-                    game_state.events.append({"type": "attack", "weapon": p["weapon"]})
+                    game_state.events.append({
+                        "type": "attack", "weapon": p["weapon"],
+                        "x": p["x"], "y": p["y"], "tx": combat_target["x"], "ty": combat_target["y"]
+                    })
+                    game_state.events.append({
+                        "type": "hurt", "weapon": combat_target["weapon"],
+                        "x": combat_target["x"], "y": combat_target["y"]
+                    })
                     
-                    # Projectile Gen
                     if p["weapon"] in ["bow", "dagger", "spear"]:
                         game_state.projectiles.append({
-                            "x": p["x"], "y": p["y"],
-                            "vx": (dx/dist) * 15, "vy": (dy/dist) * 15,
-                            "life": int(dist/15), "type": p["weapon"]
-                        })
-                    else: # Melee line
-                        game_state.projectiles.append({
-                            "x": p["x"], "y": p["y"], "vx": 0, "vy": 0,
-                            "tx": target["x"], "ty": target["y"],
-                            "life": 3, "type": "melee"
+                            "x": p["x"], "y": p["y"], "vx": (cx/cdist) * 15, "vy": (cy/cdist) * 15,
+                            "life": int(cdist/15), "type": p["weapon"]
                         })
 
-                    # Knockback
-                    if p["weapon"] in ["sword", "hammer"]:
-                        kb = 15 if p["weapon"] == "sword" else 30
-                        target["x"] += (dx/dist) * kb
-                        target["y"] += (dy/dist) * kb
+                    if p["weapon"] in["sword", "hammer"]:
+                        kb = 10 if p["weapon"] == "sword" else 25
+                        combat_target["x"] += (cx/cdist) * kb
+                        combat_target["y"] += (cy/cdist) * kb
 
                     if multiplier == 2.0:
-                        game_state.add_log(f"💥 {p['name']} khắc hệ, đâm {int(final_dmg)} HP vào {target['name']}!", 
-                                           f"💥 {p['name']} counters, deals {int(final_dmg)} dmg to {target['name']}!")
+                        game_state.add_log(f"💥 {p['name']} khắc hệ, giáng {int(final_dmg)} HP vào {combat_target['name']}!", 
+                                           f"💥 {p['name']} counters, deals {int(final_dmg)} dmg to {combat_target['name']}!")
                     
-                    if target["hp"] <= 0:
-                        target["hp"] = 0
-                        target["alive"] = False
+                    if combat_target["hp"] <= 0:
+                        combat_target["hp"] = 0
+                        combat_target["alive"] = False
                         game_state.events.append({"type": "death"})
-                        game_state.add_log(f"💀 {p['name']} đã kết liễu {target['name']}!", 
-                                           f"💀 {p['name']} killed {target['name']}!")
+                        game_state.add_log(f"💀 {p['name']} đã kết liễu {combat_target['name']}!", 
+                                           f"💀 {p['name']} killed {combat_target['name']}!")
 
-        # Apply movement with bounds bouncing
         p["x"] += vx
         p["y"] += vy
         
@@ -423,7 +457,7 @@ async def game_loop():
     while True:
         update_game_logic()
         await broadcast()
-        await asyncio.sleep(0.1) # 10 ticks/s
+        await asyncio.sleep(0.1)
 
 @app.on_event("startup")
 async def startup_event():

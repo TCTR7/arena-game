@@ -3,50 +3,89 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
-// --- SFX AUDIO ENGINE (8-bit) ---
+// --- SFX AUDIO ENGINE ---
 class SoundEngine {
   constructor() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.ctx = null;
     this.muted = false;
   }
-  resume() { if(this.ctx.state === 'suspended') this.ctx.resume(); }
-  play(type) {
-    if (this.muted) return;
+  
+  init() {
+    if (!this.ctx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioContext();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+
+  play(type, weapon = null) {
+    if (this.muted || !this.ctx) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     const t = this.ctx.currentTime;
     
-    switch(type) {
-      case 'sword':
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
-        gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1); break;
-      case 'spear':
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(400, t); osc.frequency.linearRampToValueAtTime(200, t + 0.05);
-        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05); break;
-      case 'dagger':
-        osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(1200, t + 0.1);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1); break;
-      case 'bow':
-        osc.type = 'square'; osc.frequency.setValueAtTime(300, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-        gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15); break;
-      case 'hammer':
-        osc.type = 'square'; osc.frequency.setValueAtTime(80, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.3);
-        gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3); break;
-      case 'death':
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
-        gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5); break;
-      case 'win':
-        osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
-        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0); break;
+    if (type === 'attack') {
+      if (weapon === 'sword') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1);
+      } else if (weapon === 'spear') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t); osc.frequency.linearRampToValueAtTime(100, t + 0.05);
+        gain.gain.setValueAtTime(0.4, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05);
+      } else if (weapon === 'dagger') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(1000, t); osc.frequency.exponentialRampToValueAtTime(1500, t + 0.08);
+        gain.gain.setValueAtTime(0.2, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08);
+      } else if (weapon === 'bow') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(350, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+        gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
+      } else if (weapon === 'hammer') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
+        gain.gain.setValueAtTime(0.9, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4); osc.start(t); osc.stop(t + 0.4);
+      }
+    } 
+    else if (type === 'death') {
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
+      gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5);
+    }
+    else if (type === 'win') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
+      gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
     }
   }
 }
 const sfx = new SoundEngine();
 
-// --- TEXT TO SPEECH ---
-const speak = (text, langStr, muted) => {
+// --- HUMAN VOICE ENGINE ---
+class VoiceEngine {
+  constructor() {
+    this.synth = window.speechSynthesis;
+    this.muted = false;
+    this.lastSpeakTime = 0;
+  }
+  
+  shout(type) {
+    if (this.muted || !this.synth) return;
+    const now = Date.now();
+    if (now - this.lastSpeakTime < 600) return;
+
+    const attackShouts =["Ya!", "Chết đi!", "Đỡ này!", "Ha!", "Xông lên!"];
+    const hurtScreams =["Á!", "Ui da!", "Hự!", "Đau!", "Oái!"];
+    
+    const text = type === 'attack' ? attackShouts[Math.floor(Math.random()*attackShouts.length)] : hurtScreams[Math.floor(Math.random()*hurtScreams.length)];
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'vi-VN';
+    u.pitch = 0.6 + Math.random() * 0.8; 
+    u.rate = 1.6; 
+    u.volume = 1.0;
+    
+    this.synth.speak(u);
+    this.lastSpeakTime = now;
+  }
+}
+const humanVoice = new VoiceEngine();
+
+const speakLog = (text, langStr, muted) => {
   if (muted || !window.speechSynthesis) return;
   const msg = new SpeechSynthesisUtterance(text);
   msg.lang = langStr === 'vi' ? 'vi-VN' : 'en-US';
@@ -54,13 +93,12 @@ const speak = (text, langStr, muted) => {
   window.speechSynthesis.speak(msg);
 };
 
-// --- EMOJIS & WIKI ---
 const WEAPONS = {
-  dagger: { n: "Dao găm", e: "🗡️", r: "40-120", d: 14, cd: "0.4s", w: 0 },
-  sword: { n: "Kiếm dài", e: "⚔️", r: "0-50", d: 25, cd: "1.0s", w: 15 },
-  spear: { n: "Trường giáo", e: "🔱", r: "35-90", d: 22, cd: "1.2s", w: 20 },
-  bow: { n: "Cung tiễn", e: "🏹", r: "80-220", d: 18, cd: "0.8s", w: 10 },
-  hammer: { n: "Búa tạ", e: "🔨", r: "0-45", d: 65, cd: "2.2s", w: 40 }
+  dagger: { n: "Dao găm", e: "🗡️", r: "40-120", max_rng: 120, d: 14, cd: "0.4s", w: 0 },
+  sword: { n: "Kiếm dài", e: "⚔️", r: "0-85", max_rng: 85, d: 25, cd: "1.0s", w: 15 },
+  spear: { n: "Trường giáo", e: "🔱", r: "35-90", max_rng: 90, d: 22, cd: "1.2s", w: 20 },
+  bow: { n: "Cung tiễn", e: "🏹", r: "80-220", max_rng: 220, d: 18, cd: "0.8s", w: 10 },
+  hammer: { n: "Búa tạ", e: "🔨", r: "0-75", max_rng: 75, d: 65, cd: "2.2s", w: 40 }
 };
 const SHIELDS = {
   buckler: { n: "Khiên nhỏ", e: "🥏", w: 2, b: "5%" },
@@ -69,9 +107,11 @@ const SHIELDS = {
 };
 
 export default function App() {
-  const [gameState, setGameState] = useState(null);
+  const[gameState, setGameState] = useState(null);
   const [started, setStarted] = useState(false);
-  const [muted, setMuted] = useState(false);
+  const[muted, setMuted] = useState(false);
+  
+  const[globalHostPwd, setGlobalHostPwd] = useState('');
   const spokenLogs = useRef(new Set());
 
   useEffect(() => {
@@ -80,34 +120,43 @@ export default function App() {
       const data = JSON.parse(e.data);
       setGameState(data);
       
-      // Process Audio Events
       if(data.events && started) {
         data.events.forEach(ev => {
-          if(ev.type === 'attack') sfx.play(ev.weapon);
+          if(ev.type === 'attack') {
+            sfx.play('attack', ev.weapon);
+            humanVoice.shout('attack');
+          }
+          if(ev.type === 'hurt') {
+            humanVoice.shout('hurt');
+          }
           if(ev.type === 'death') sfx.play('death');
           if(ev.type === 'win') sfx.play('win');
         });
       }
 
-      // Process TTS Logs
       if(data.logs.length > 0 && started) {
         const topLog = data.logs[0];
         if(!spokenLogs.current.has(topLog)) {
           spokenLogs.current.add(topLog);
           if(topLog.includes("💀") || topLog.includes("🏆")) {
-            speak(topLog.replace(/[^\p{L}\p{N}\s]/gu, ''), data.config.language, muted);
+            speakLog(topLog.replace(/[^\p{L}\p{N}\s]/gu, ''), data.config.language, muted);
           }
         }
       }
     };
     return () => ws.close();
-  }, [started, muted]);
+  },[started, muted]);
+
+  const handleStartGameClick = () => {
+    sfx.init(); 
+    setStarted(true);
+  };
 
   if (!started) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-900 text-white flex-col">
         <h1 className="text-4xl font-bold mb-8 text-yellow-500">AUTO-BATTLER: BATTLE ROYALE</h1>
-        <button onClick={() => { sfx.resume(); setStarted(true); }} className="bg-green-600 hover:bg-green-500 text-2xl font-bold py-4 px-10 rounded-full animate-bounce shadow-[0_0_20px_rgba(34,197,94,0.5)]">
+        <button onClick={handleStartGameClick} className="bg-green-600 hover:bg-green-500 text-2xl font-bold py-4 px-10 rounded-full animate-bounce shadow-[0_0_20px_rgba(34,197,94,0.5)]">
           BẤM VÀO ĐÂY ĐỂ VÀO GAME (Cho phép Audio)
         </button>
       </div>
@@ -117,12 +166,10 @@ export default function App() {
   if (!gameState) return <div className="flex h-screen items-center justify-center text-xl text-white">Đang tải cấu hình máy chủ...</div>;
 
   sfx.muted = muted;
+  humanVoice.muted = muted;
 
   return (
-    // FIX TỤT MAP: Dùng overflow-hidden cứng ở thẻ cha cao nhất khi playing
     <div className={`w-full bg-gray-900 text-white flex flex-col ${gameState.phase === 'playing' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      
-      {/* Header */}
       <header className="shrink-0 bg-gray-800 p-3 shadow-md flex justify-between items-center z-10 relative border-b border-gray-700">
         <h1 className="text-2xl font-bold text-yellow-400">{gameState.config.room_name}</h1>
         <button onClick={() => setMuted(!muted)} className={`p-2 rounded font-bold ${muted ? 'bg-red-600' : 'bg-green-600'}`}>
@@ -130,11 +177,10 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main Content (Thêm min-h-0 để chống phình flex child) */}
       <main className={`flex-1 w-full flex ${gameState.phase === 'playing' ? 'min-h-0 overflow-hidden' : ''}`}>
-        {gameState.phase === 'waiting' && <Phase1 gameState={gameState} />}
-        {gameState.phase === 'strategy' && <Phase2 gameState={gameState} />}
-        {gameState.phase === 'playing' && <Phase3 gameState={gameState} />}
+        {gameState.phase === 'waiting' && <Phase1 gameState={gameState} hostPwd={globalHostPwd} setHostPwd={setGlobalHostPwd} />}
+        {gameState.phase === 'strategy' && <Phase2 gameState={gameState} hostPwd={globalHostPwd} setHostPwd={setGlobalHostPwd} />}
+        {gameState.phase === 'playing' && <Phase3 gameState={gameState} hostPwd={globalHostPwd} />}
         {gameState.phase === 'finished' && <PhaseFinished gameState={gameState} />}
       </main>
     </div>
@@ -142,14 +188,13 @@ export default function App() {
 }
 
 // --- PHASE 1: LOBBY & HOST ---
-function Phase1({ gameState }) {
+function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[name, setName] = useState('');
   const [pwd, setPwd] = useState('');
   const[weapon, setWeapon] = useState('sword');
   const [shield, setShield] = useState('wood_shield');
-  const [hostPwd, setHostPwd] = useState('');
 
-  const [localConfig, setLocalConfig] = useState(gameState.config);
+  const[localConfig, setLocalConfig] = useState(gameState.config);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -172,14 +217,13 @@ function Phase1({ gameState }) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto">
-      {/* Cột 1: Đăng ký */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-blue-400">1. Đăng ký tham gia</h2>
         <form onSubmit={handleRegister} className="flex flex-col gap-3">
           <input className="p-2 bg-gray-700 rounded" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
           <input className="p-2 bg-gray-700 rounded" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
           
-          <label className="text-sm text-gray-400 mt-2">Vũ khí</label>
+          <label className="text-sm text-gray-400 mt-2">Vũ Khí</label>
           <select className="p-2 bg-gray-700 rounded" value={weapon} onChange={e=>setWeapon(e.target.value)}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
@@ -202,7 +246,6 @@ function Phase1({ gameState }) {
         </div>
       </div>
 
-      {/* Cột 2: Wiki */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-yellow-400">📖 Bách khoa toàn thư</h2>
         <div className="text-sm space-y-4">
@@ -226,10 +269,9 @@ function Phase1({ gameState }) {
         </div>
       </div>
 
-      {/* Cột 3: Host Panel */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-purple-400">👑 Bảng điều khiển Host</h2>
-        <input className="p-2 w-full bg-gray-700 rounded mb-4" placeholder="Nhập pass Host (dev123) để mở khóa" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        <input className="p-2 w-full bg-gray-700 rounded mb-4" placeholder="Nhập pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === 'dev123' && (
           <div className="flex flex-col gap-3 animate-fade-in">
@@ -256,12 +298,11 @@ function Phase1({ gameState }) {
 }
 
 // --- PHASE 2: STRATEGY ---
-function Phase2({ gameState }) {
+function Phase2({ gameState, hostPwd, setHostPwd }) {
   const [name, setName] = useState('');
   const[pwd, setPwd] = useState('');
   const [targetRule, setTargetRule] = useState('nearest');
-  const [campRule, setCampRule] = useState('attack');
-  const [hostPwd, setHostPwd] = useState('');
+  const[campRule, setCampRule] = useState('attack');
 
   const saveTactics = async (e) => {
     e.preventDefault();
@@ -334,10 +375,50 @@ function Phase2({ gameState }) {
 }
 
 // --- PHASE 3: PLAYING (CANVAS MAP + CASTER PANEL) ---
-function Phase3({ gameState }) {
+function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
+  const vfxRef = useRef([]); 
+
+  // Hàm Dừng Game Sớm (Host Only)
+  const handleForceEnd = async () => {
+    let pwd = hostPwd;
+    if (pwd !== 'dev123') {
+      pwd = window.prompt("Bạn chưa nhập Pass Host ở phòng chờ. Vui lòng nhập Pass (dev123) để Dừng Trận Sớm:");
+    }
+    if (pwd === "dev123") {
+      await fetch(`${API_URL}/force_end`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pwd })
+      });
+    } else if (pwd !== null) {
+      alert("Sai mật khẩu Host!");
+    }
+  };
 
   useEffect(() => {
+    if (gameState.events) {
+      gameState.events.forEach(ev => {
+        if (ev.type === 'attack') {
+          vfxRef.current.push({
+            type: 'slash', x: ev.x, y: ev.y, tx: ev.tx, ty: ev.ty, weapon: ev.weapon, life: 8 
+          });
+        }
+        if (ev.type === 'hurt') {
+          for (let i = 0; i < 10; i++) {
+            vfxRef.current.push({
+              type: 'blood', 
+              x: ev.x + (Math.random() - 0.5) * 20, 
+              y: ev.y + (Math.random() - 0.5) * 20, 
+              vx: (Math.random() - 0.5) * 15, 
+              vy: (Math.random() - 0.5) * 15, 
+              life: 8 + Math.random() * 5
+            });
+          }
+        }
+      });
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -345,59 +426,67 @@ function Phase3({ gameState }) {
     const ch = gameState.config.map_height;
     const z = gameState.zone;
     
-    // LAYER 1: NỀN BÊN NGOÀI BO (XÁM MẶC ĐỊNH)
-    ctx.fillStyle = '#1F2937'; // Tailwind gray-800
+    ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
 
-    // LAYER 2: NỀN BÊN TRONG BO (MÀU CHỈ ĐỊNH CỦA HOST)
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.fillStyle = gameState.config.bg_color;
     ctx.fill();
 
-    // LAYER 3: KẺ LƯỚI GRID (Vẽ đè lên toàn map)
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     for(let i=0; i<cw; i+=100) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); ctx.stroke(); }
     for(let i=0; i<ch; i+=100) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); ctx.stroke(); }
 
-    // LAYER 4: VIỀN CỦA VÒNG BO ĐỎ
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.strokeStyle = '#EF4444';
     ctx.lineWidth = 6;
     ctx.stroke();
 
-    // LAYER 5: VÒNG TRÒN TẦM ĐÁNH CỦA NHÂN VẬT
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) return;
       const w_data = WEAPONS[p.weapon];
+      
+      let fillColor = 'rgba(255, 255, 255, 0.05)';
+      let strokeColor = 'rgba(255, 255, 255, 0.6)';
+      let glowColor = '#ffffff';
+
+      if (p.weapon === 'sword') { fillColor = 'rgba(239, 68, 68, 0.06)'; strokeColor = 'rgba(239, 68, 68, 0.6)'; glowColor = '#ef4444'; }
+      else if (p.weapon === 'bow') { fillColor = 'rgba(234, 179, 8, 0.06)'; strokeColor = 'rgba(234, 179, 8, 0.6)'; glowColor = '#eab308'; }
+      else if (p.weapon === 'spear') { fillColor = 'rgba(59, 130, 246, 0.06)'; strokeColor = 'rgba(59, 130, 246, 0.6)'; glowColor = '#3b82f6'; }
+      else if (p.weapon === 'hammer') { fillColor = 'rgba(249, 115, 22, 0.06)'; strokeColor = 'rgba(249, 115, 22, 0.6)'; glowColor = '#f97316'; }
+      else if (p.weapon === 'dagger') { fillColor = 'rgba(168, 85, 247, 0.06)'; strokeColor = 'rgba(168, 85, 247, 0.6)'; glowColor = '#a855f7'; }
+
       ctx.beginPath();
       ctx.arc(p.x, p.y, w_data.max_rng, 0, Math.PI*2);
-      ctx.fillStyle = p.hp < 150 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(59, 130, 246, 0.05)'; 
+      ctx.fillStyle = fillColor;
       ctx.fill(); 
-      ctx.strokeStyle = p.hp < 150 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.2)';
-      ctx.lineWidth = 1;
+
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = glowColor;
       ctx.stroke();
+      ctx.shadowBlur = 0;
     });
 
-    // LAYER 6: ĐƯỜNG ĐẠN & HIỆU ỨNG CHIẾN ĐẤU
     gameState.projectiles.forEach(p => {
-      ctx.beginPath();
-      if(p.type === 'melee') {
-        ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty);
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = p.life * 2; ctx.stroke();
-      } else {
-        ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+      if(p.type !== 'melee') { 
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
         ctx.fillStyle = p.type === 'dagger' ? '#9CA3AF' : p.type === 'bow' ? '#FDE047' : '#60A5FA';
         ctx.fill();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.fill();
+        ctx.shadowBlur = 0;
       }
     });
 
-    // LAYER 7: THẺ BÀI NHÂN VẬT CHÍNH
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) {
-        // Vẽ Bia mộ cho kẻ thù
         ctx.fillStyle = '#4B5563'; 
         ctx.fillRect(p.x - 15, p.y - 15, 30, 30);
         ctx.fillStyle = 'red'; ctx.font = '20px Arial'; ctx.textAlign = 'center';
@@ -411,26 +500,22 @@ function Phase3({ gameState }) {
       const cx = p.x - cardW / 2;
       const cy = p.y - cardH / 2;
 
-      // Card Box (Thân thẻ)
       ctx.fillStyle = '#1F2937';
       ctx.fillRect(cx, cy, cardW, cardH);
       ctx.strokeStyle = isBerserk ? '#EF4444' : '#FBBF24';
       ctx.lineWidth = 2;
       ctx.strokeRect(cx, cy, cardW, cardH);
 
-      // Tên Người Chơi
       ctx.fillStyle = 'white';
       ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
       const shortName = p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name;
       ctx.fillText(shortName, p.x, cy + 16);
 
-      // Emojis Vũ Khí & Khiên
       ctx.font = '22px sans-serif';
       ctx.fillText(WEAPONS[p.weapon].e, p.x - 14, cy + 45);
       ctx.fillText(SHIELDS[p.shield].e, p.x + 14, cy + 45);
 
-      // Thanh Máu
       const hpBoxX = cx + 5;
       const hpBoxY = cy + 58;
       const hpBoxW = cardW - 10;
@@ -448,37 +533,71 @@ function Phase3({ gameState }) {
       ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 9);
     });
 
-  }, [gameState]);
+    let activeVfx =[];
+    vfxRef.current.forEach(v => {
+      if (v.type === 'slash') {
+        ctx.beginPath();
+        ctx.moveTo(v.x, v.y);
+        ctx.lineTo(v.tx, v.ty);
+        
+        let slashColor = '255, 255, 255';
+        let glowColor = '#ffffff';
+        if(v.weapon === 'sword') { slashColor = '239, 68, 68'; glowColor = '#ef4444'; }
+        if(v.weapon === 'hammer') { slashColor = '249, 115, 22'; glowColor = '#f97316'; }
+        if(v.weapon === 'spear') { slashColor = '59, 130, 246'; glowColor = '#3b82f6'; }
+
+        ctx.strokeStyle = `rgba(${slashColor}, ${v.life / 6})`;
+        ctx.lineWidth = v.life * 2; 
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = glowColor;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } 
+      else if (v.type === 'blood') {
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, v.life / 2, 0, Math.PI*2); 
+        ctx.fillStyle = `rgba(220, 38, 38, ${v.life / 10})`; 
+        ctx.fill();
+        v.x += v.vx;
+        v.y += v.vy;
+      }
+      
+      v.life -= 1;
+      if (v.life > 0) activeVfx.push(v);
+    });
+    vfxRef.current = activeVfx; 
+
+  },[gameState]);
 
   return (
-    // FIX TỤT MAP: w-full h-full min-h-0 cho cả cụm bọc ngoài
     <div className="flex w-full h-full overflow-hidden min-h-0">
-      
-      {/* VÙNG CHỨA MAP BÊN TRÁI */}
       <div className="flex-1 bg-[#0b0f19] relative flex items-center justify-center p-2 min-h-0 border-r border-gray-700">
         <canvas 
           ref={canvasRef} 
           width={gameState.config.map_width} 
           height={gameState.config.map_height} 
-          // CỐT LÕI NẰM Ở ĐÂY: object-contain scale bản đồ vào chính giữa không làm tràn layout
           className="w-full h-full object-contain rounded shadow-[0_0_25px_rgba(0,0,0,0.8)]"
         />
-        
-        {/* Radar Info Box */}
         <div className="absolute top-4 left-4 bg-gray-900/90 p-3 rounded border border-gray-600 font-mono text-lg text-white font-bold shadow-lg shadow-black">
           Người sống: <span className="text-yellow-400">{Object.values(gameState.players).filter(p=>p.alive).length}</span> | 
           Vòng bo: <span className="text-red-400">{Math.floor(gameState.zone.r)}px</span>
         </div>
       </div>
 
-      {/* Caster Panel BÊN PHẢI (Không bị tràn/lệch) */}
       <div className="w-96 bg-gray-800 flex flex-col shrink-0 h-full min-h-0">
-        <div className="p-3 bg-gray-900 font-bold border-b border-gray-700 text-purple-400 flex items-center gap-2">
-          🎙️ Caster Panel (Live)
+        <div className="p-3 bg-gray-900 font-bold border-b border-gray-700 text-purple-400 flex items-center justify-between gap-2">
+          <span>🎙️ Caster Panel (Live)</span>
+          <button 
+            onClick={handleForceEnd} 
+            className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded text-xs font-bold uppercase tracking-wider animate-pulse shadow-md"
+            title="Dừng trận đấu ngay lập tức (Người nhiều máu nhất sẽ thắng)"
+          >
+            🛑 Kết Thúc Sớm
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col-reverse">
           {gameState.logs.map((log, i) => (
-            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : 'border-blue-500 bg-gray-700'}`}>
+            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') || log.includes('🛑') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : 'border-blue-500 bg-gray-700'}`}>
               {log}
             </div>
           ))}
