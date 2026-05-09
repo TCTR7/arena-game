@@ -19,48 +19,55 @@ class SoundEngine {
 
   play(type, weapon = null) {
     if (this.muted || !this.ctx) return;
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    
-    const t = this.ctx.currentTime + 0.02; 
-    
-    if (type === 'attack') {
-      if (weapon === 'sword') {
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
-        gain.gain.setValueAtTime(0.6, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1);
-      } else if (weapon === 'spear') {
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t); osc.frequency.linearRampToValueAtTime(100, t + 0.05);
-        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05);
-      } else if (weapon === 'dagger') {
-        osc.type = 'sine'; osc.frequency.setValueAtTime(1000, t); osc.frequency.exponentialRampToValueAtTime(1500, t + 0.08);
-        gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08);
-      } else if (weapon === 'bow') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(350, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
-      } else if (weapon === 'hammer') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
-        gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4); osc.start(t); osc.stop(t + 0.4);
-      }
-    } 
-    else if (type === 'death') {
-      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
-      gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5);
-    }
-    else if (type === 'win') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
-      gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
-    }
-    else if (type === 'heal') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
-      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
-    }
-    else if (type === 'dodge') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.2);
-      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.2); osc.start(t); osc.stop(t + 0.2);
-    }
+    try {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        const t = this.ctx.currentTime; 
+        
+        if (type === 'attack') {
+          if (weapon === 'sword') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+            gain.gain.setValueAtTime(0.6, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1);
+          } else if (weapon === 'spear') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t); osc.frequency.linearRampToValueAtTime(100, t + 0.05);
+            gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05);
+          } else if (weapon === 'dagger') {
+            osc.type = 'sine'; osc.frequency.setValueAtTime(1000, t); osc.frequency.exponentialRampToValueAtTime(1500, t + 0.08);
+            gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08);
+          } else if (weapon === 'bow') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(350, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+            gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
+          } else if (weapon === 'hammer') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
+            gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4); osc.start(t); osc.stop(t + 0.4);
+          }
+        } 
+        else if (type === 'death') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
+          gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5);
+        }
+        else if (type === 'win') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
+          gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
+        }
+        else if (type === 'heal') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+          gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
+        }
+        else if (type === 'dodge') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.2);
+          gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.2); osc.start(t); osc.stop(t + 0.2);
+        }
+        
+        // ĐÃ FIX: Hủy kết nối node âm thanh ngay sau khi xong để tránh tràn bộ nhớ gây mất tiếng
+        osc.onended = () => {
+            gain.disconnect();
+        };
+    } catch(e) {}
   }
 }
 const sfx = new SoundEngine();
@@ -197,6 +204,16 @@ export default function App() {
     }
   },[]);
 
+  // ĐÃ FIX: Khơi thông Audio khi người dùng click vào đâu đó trong ứng dụng
+  useEffect(() => {
+    const unlockAudio = () => {
+      sfx.init();
+      document.removeEventListener('click', unlockAudio);
+    };
+    document.addEventListener('click', unlockAudio);
+    return () => document.removeEventListener('click', unlockAudio);
+  },[]);
+
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
     ws.onmessage = (e) => {
@@ -260,31 +277,25 @@ export default function App() {
   sfx.muted = muted;
   humanVoice.muted = muted;
 
-  // Lấy thống kê cho Header
   const aliveCount = Object.values(gameState.players || {}).filter(p=>p.alive).length;
   const zoneRadius = Math.floor(gameState.zone?.r || 0);
   const isPlaying = gameState.phase === 'playing';
 
   return (
     <div className={`w-full bg-gray-900 text-white flex flex-col ${gameState.phase === 'playing' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      
-      {/* HEADER ĐÃ ĐƯỢC CHỈNH SỬA: CHÈN KHUNG TRẠNG THÁI VÀO GIỮA */}
       <header className="shrink-0 bg-gray-800 p-3 shadow-md flex justify-between items-center z-10 relative border-b border-gray-700">
         <div className="flex-1">
             <h1 className="text-2xl font-bold text-yellow-400 truncate">{gameState.config.room_name}</h1>
         </div>
-
-        {/* THÔNG TIN VÒNG BO NẰM GỌN TRÊN HEADER */}
         {isPlaying && (
             <div className="flex-1 flex justify-center">
                 <div className="flex gap-6 bg-gray-900/80 px-5 py-1.5 rounded-full border border-gray-600 font-mono text-base font-bold shadow-inner">
                     <div>Trạng thái: <span className="text-green-400">{aliveCount} Sống</span></div>
-                    <div className="w-px bg-gray-600"></div> {/* Đường kẻ chia cách */}
+                    <div className="w-px bg-gray-600"></div>
                     <div>Vòng bo: <span className="text-red-400">{zoneRadius}px</span></div>
                 </div>
             </div>
         )}
-
         <div className="flex-1 flex justify-end">
             <button onClick={() => setMuted(!muted)} className={`p-2 rounded font-bold ${muted ? 'bg-red-600' : 'bg-green-600'}`}>
             {muted ? "🔇 TẮT ÂM" : "🔊 BẬT ÂM"}
@@ -315,10 +326,10 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
 
-  const handleWeaponChange = (e) => {
-    const selectedWep = e.target.value;
-    setWeapon(selectedWep);
-    sfx.play('attack', selectedWep);
+  // ĐÃ FIX: Chức năng Nghe thử vũ khí thông minh bằng Nút riêng biệt
+  const testWeaponSound = () => {
+    sfx.init();
+    sfx.play('attack', weapon);
   };
 
   const handleRegister = async (e) => {
@@ -348,7 +359,6 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto">
-      
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-blue-400">1. Đăng ký tham gia</h2>
         <form onSubmit={handleRegister} className="flex flex-col gap-3">
@@ -357,9 +367,12 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
           
           <label className="text-sm text-gray-400 mt-2 flex justify-between items-center">
             <span>Chọn Vũ Khí</span>
-            <span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
+            {/* ĐÃ FIX: Nút chuyên dụng để nghe thử âm thanh */}
+            <button type="button" onClick={testWeaponSound} className="text-xs bg-green-900 text-green-400 font-bold px-2 py-1 rounded hover:bg-green-800 animate-pulse border border-green-700">
+              🔊 Nghe thử Vũ Khí
+            </button>
           </label>
-          <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={handleWeaponChange}>
+          <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={e=>setWeapon(e.target.value)}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
 
@@ -384,22 +397,19 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-[650px] overflow-y-auto custom-scrollbar">
         <h2 className="text-2xl font-bold mb-4 text-yellow-400 border-b border-gray-600 pb-2">📖 Bách Khoa Cờ Nhân Phẩm</h2>
         <div className="text-sm space-y-6">
-          
           <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-green-500">
             <h3 className="font-bold text-green-400 text-base mb-1">🏃 Tốc Độ Di Chuyển</h3>
             <p>Phụ thuộc vào Độ Nặng trang bị. <br/><b>Tốc độ = Base - (Nặng VK + Nặng Khiên).</b> Càng nhẹ chạy càng nhanh.</p>
           </div>
-
           <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-yellow-500">
             <h3 className="font-bold text-yellow-400 text-base mb-1">🎲 Nhân Phẩm (RNG) & Môi Trường</h3>
             <ul className="list-disc pl-4 mt-1 space-y-1">
               <li><b>Chí Mạng (Crit):</b> Sát thương ngẫu nhiên x1.5 hoặc x2. Dao Găm có tỉ lệ nổ Crit cực cao (30%).</li>
               <li><b>Né Đòn (Dodge):</b> Ngẫu nhiên né 100% sát thương. Cầm Khiên Nhỏ có tới 25% cơ hội Né!</li>
-              <li><b>Bụi Cỏ (Stealth):</b> Chui vào tàng hình, AI địch sẽ bị "mù", không thể target bạn.</li>
-              <li><b>Hộp Tiếp Tế (Airdrop):</b> Thỉnh thoảng rớt hộp thuốc. Chạy lại nhặt hồi ngay 150 Máu!</li>
+              <li><b>Bụi Cỏ (Stealth):</b> Chui vào tàng hình, AI địch sẽ bị mù. <b className="text-red-400">Tuy nhiên khi hết Vòng bo (Bo = 0), mọi bụi cỏ sẽ bị thiêu rụi!</b></li>
+              <li><b>Hộp Tiếp Tế (Airdrop):</b> Nhặt hồi ngay 150 Máu. Đầu game rớt 15s/lần, cuối game (Sudden Death) rớt rất chậm 45s/lần.</li>
             </ul>
           </div>
-
           <div>
             <h3 className="font-bold text-red-400 text-base border-b border-gray-600 pb-1 mb-2">⚔️ Khắc Hệ (Sát thương x2)</h3>
             <ul className="list-disc pl-4 space-y-1 text-gray-300">
@@ -408,7 +418,6 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               <li><b className="text-white">Kiếm / Giáo / Cung</b> xuyên thủng <b className="text-blue-300">Khiên Nhỏ</b>.</li>
             </ul>
           </div>
-
           <div>
             <h3 className="font-bold text-yellow-500 text-base border-b border-gray-600 pb-1 mb-2">📊 Bảng Chỉ Số Vũ Khí & Khiên</h3>
             <ul className="mt-2 space-y-2 text-gray-300">
@@ -428,7 +437,6 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               ))}
             </ul>
           </div>
-
         </div>
       </div>
 
@@ -484,7 +492,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
 // --- PHASE 2: STRATEGY ---
 function Phase2({ gameState, hostPwd, setHostPwd }) {
-  const [name, setName] = useState('');
+  const[name, setName] = useState('');
   const[pwd, setPwd] = useState('');
   const[targetRule, setTargetRule] = useState('nearest');
   const[campRule, setCampRule] = useState('attack');
@@ -546,7 +554,7 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 
         <div className="bg-gray-800 p-8 rounded-xl border border-purple-500 shadow-2xl flex flex-col justify-center">
           <h3 className="text-xl font-bold mb-4 text-center text-purple-400">👑 Quyền Host</h3>
-          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược, hoặc test sức mạnh Bots.</p>
+          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược.</p>
           <input className="p-3 bg-gray-700 rounded mb-4 text-center text-lg outline-none" placeholder="Nhập Pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
           {hostPwd === 'dev123' && (
             <button onClick={forceStart} className="bg-red-600 hover:bg-red-500 py-4 px-6 rounded font-bold text-white uppercase tracking-wider animate-pulse shadow-[0_0_20px_rgba(220,38,38,0.6)]">
@@ -685,11 +693,9 @@ function Phase3({ gameState, hostPwd }) {
     const ch = gameState.config.map_height;
     const z = gameState.zone;
     
-    // LAYER 1: BÊN NGOÀI BO
     ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
 
-    // LAYER 2: BÊN TRONG BO
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.fillStyle = gameState.config.bg_color;
@@ -902,7 +908,6 @@ function Phase3({ gameState, hostPwd }) {
 
   return (
     <div className="flex w-full h-full overflow-hidden min-h-0">
-      {/* VÙNG MAP BÊN TRÁI */}
       <div className="flex-1 bg-[#0b0f19] relative flex items-center justify-center p-2 min-h-0 border-r border-gray-700">
         <canvas 
           ref={canvasRef} 
@@ -910,7 +915,6 @@ function Phase3({ gameState, hostPwd }) {
           height={gameState.config.map_height} 
           className="w-full h-full object-contain rounded shadow-[0_0_25px_rgba(0,0,0,0.8)]"
         />
-        {/* ĐÃ XÓA KHUNG THÔNG TIN Ở ĐÂY */}
       </div>
 
       <div className="w-96 bg-gray-800 flex flex-col shrink-0 h-full min-h-0">
