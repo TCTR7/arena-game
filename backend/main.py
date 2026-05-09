@@ -26,7 +26,6 @@ DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
 class GameState:
     def __init__(self):
         self.phase = "waiting"
-        # BỘ CẤU HÌNH MẶC ĐỊNH SẼ ĐƯỢC LƯU RA FILE JSON
         self.config = {
             "room_name": "Giải Đấu Cờ Nhân Phẩm", 
             "map_width": 2000, 
@@ -39,16 +38,16 @@ class GameState:
                 "card_height": 110
             },
             "weapons": {
-                "dagger": {"n": "Dao găm", "e": "🗡️", "min_rng": 50, "max_rng": 160, "r": "50-160", "dmg": 14, "cd_ticks": 4, "cd": "0.4s", "weight": 0, "counters": "wood_shield"},
-                "sword": {"n": "Kiếm dài", "e": "⚔️", "min_rng": 0, "max_rng": 110, "r": "0-110", "dmg": 25, "cd_ticks": 10, "cd": "1.0s", "weight": 15, "counters":["wood_shield", "buckler"]},
-                "spear": {"n": "Trường giáo", "e": "🔱", "min_rng": 50, "max_rng": 140, "r": "50-140", "dmg": 22, "cd_ticks": 12, "cd": "1.2s", "weight": 20, "counters":["steel_shield", "buckler"]},
-                "bow": {"n": "Cung tiễn", "e": "🏹", "min_rng": 100, "max_rng": 300, "r": "100-300", "dmg": 18, "cd_ticks": 8, "cd": "0.8s", "weight": 10, "counters":["buckler", "wood_shield"]},
-                "hammer": {"n": "Búa tạ", "e": "🔨", "min_rng": 0, "max_rng": 100, "r": "0-100", "dmg": 65, "cd_ticks": 22, "cd": "2.2s", "weight": 40, "counters": "steel_shield"}
+                "dagger": {"n": "Dao găm", "e": "🗡️", "min_rng": 50, "max_rng": 160, "r": "50-160", "dmg": 14, "cd_ticks": 4, "cd": "0.4s", "weight": 0, "counters": "wood_shield", "crit": 0.30, "crit_mult": 2.0},
+                "sword": {"n": "Kiếm dài", "e": "⚔️", "min_rng": 0, "max_rng": 110, "r": "0-110", "dmg": 25, "cd_ticks": 10, "cd": "1.0s", "weight": 15, "counters":["wood_shield", "buckler"], "crit": 0.15, "crit_mult": 1.5},
+                "spear": {"n": "Trường giáo", "e": "🔱", "min_rng": 50, "max_rng": 140, "r": "50-140", "dmg": 22, "cd_ticks": 12, "cd": "1.2s", "weight": 20, "counters":["steel_shield", "buckler"], "crit": 0.10, "crit_mult": 1.5},
+                "bow": {"n": "Cung tiễn", "e": "🏹", "min_rng": 100, "max_rng": 300, "r": "100-300", "dmg": 18, "cd_ticks": 8, "cd": "0.8s", "weight": 10, "counters":["buckler", "wood_shield"], "crit": 0.15, "crit_mult": 1.5},
+                "hammer": {"n": "Búa tạ", "e": "🔨", "min_rng": 0, "max_rng": 100, "r": "0-100", "dmg": 65, "cd_ticks": 22, "cd": "2.2s", "weight": 40, "counters": "steel_shield", "crit": 0.0, "crit_mult": 1.0}
             },
             "shields": {
-                "buckler": {"n": "Khiên nhỏ", "e": "🥏", "weight": 2, "block": 0.05, "b": "5%"},
-                "wood_shield": {"n": "Khiên gỗ", "e": "🪵", "weight": 20, "block": 0.35, "b": "35%"},
-                "steel_shield": {"n": "Khiên thép", "e": "🛡️", "weight": 60, "block": 0.65, "b": "65%"}
+                "buckler": {"n": "Khiên nhỏ", "e": "🥏", "weight": 2, "block": 0.05, "b": "5%", "dodge": 0.25},
+                "wood_shield": {"n": "Khiên gỗ", "e": "🪵", "weight": 20, "block": 0.35, "b": "35%", "dodge": 0.05},
+                "steel_shield": {"n": "Khiên thép", "e": "🛡️", "weight": 60, "block": 0.65, "b": "65%", "dodge": 0.0}
             }
         }
         
@@ -56,9 +55,13 @@ class GameState:
         self.logs =[]
         self.events =[]
         self.projectiles =[]
+        
+        # Môi trường sinh tồn
+        self.bushes =[]
+        self.airdrops =[]
+        
         self.ticks = 0
         self.phase2_timer = 180
-        
         self.zone_target_radius = 2000
         self.zone_current_radius = 2000
         self.zone_x = 1000
@@ -68,14 +71,12 @@ class GameState:
         self.load_data()
 
     def load_config(self):
-        # Nếu đã có file game_config.json thì nạp vào, đè lên mặc định
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     self.config.update(json.load(f))
             except: pass
         else:
-            # Nếu chưa có thì tự sinh ra file
             self.save_config()
 
     def save_config(self):
@@ -134,9 +135,7 @@ def register_player(req: RegisterReq):
     if req.name in game_state.players and game_state.players[req.name]["pwd"] != req.pwd:
         return {"error": "Sai mật khẩu"}
     
-    # LẤY MÁU TỪ CONFIG JSON
     base_hp = game_state.config["character_settings"]["base_hp"]
-    
     game_state.players[req.name] = {
         "name": req.name, "pwd": req.pwd,
         "weapon": req.weapon, "shield": req.shield,
@@ -145,7 +144,8 @@ def register_player(req: RegisterReq):
         "hp": base_hp, "max_hp": base_hp, "alive": True,
         "x": random.randint(100, game_state.config["map_width"] - 100),
         "y": random.randint(100, game_state.config["map_height"] - 100),
-        "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2)
+        "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2),
+        "in_bush": False
     }
     game_state.save_data()
     return {"status": "ok"}
@@ -175,7 +175,8 @@ def add_bots():
             "hp": base_hp, "max_hp": base_hp, "alive": True,
             "x": random.randint(100, game_state.config["map_width"] - 100),
             "y": random.randint(100, game_state.config["map_height"] - 100),
-            "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2)
+            "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2),
+            "in_bush": False
         }
     game_state.save_data()
     return {"status": "ok"}
@@ -202,16 +203,20 @@ def set_phase(phase: str):
         game_state.zone_target_radius = math.hypot(w, h) / 2
         game_state.zone_current_radius = game_state.zone_target_radius
         
+        # Môi trường
+        game_state.bushes =[{"x": random.randint(200, w-200), "y": random.randint(200, h-200), "r": random.randint(120, 180)} for _ in range(8)]
+        game_state.airdrops = []
+
         base_hp = game_state.config["character_settings"]["base_hp"]
         for p in game_state.players.values():
-            p["max_hp"] = base_hp # Update if config changed
+            p["max_hp"] = base_hp 
             p["hp"] = base_hp
             p["alive"] = True
             p["x"] = random.randint(100, w - 100)
             p["y"] = random.randint(100, h - 100)
             p["cooldown"] = 0
+            p["in_bush"] = False
     elif phase == "waiting":
-        # Khi trở về sảnh -> Nạp lại config từ file JSON để cập nhật chỉnh sửa nóng
         game_state.load_config()
         game_state.save_data()
     return {"status": "ok"}
@@ -226,15 +231,12 @@ def force_end_game(req: ForceEndReq):
         if alive_players:
             alive_players.sort(key=lambda x: x["hp"], reverse=True)
             winner = alive_players[0]
-            
             for p in alive_players[1:]:
                 p["hp"] = 0
                 p["alive"] = False
-            
             game_state.add_log(f"🛑 HOST kết thúc sớm! {winner['name']} thắng nhờ có nhiều máu nhất!", 
                                f"🛑 HOST forced end! {winner['name']} wins by highest HP!")
             game_state.events.append({"type": "win"})
-            
         game_state.phase = "finished"
     return {"status": "ok"}
 
@@ -242,13 +244,15 @@ async def broadcast():
     if not active_connections: return
     data = {
         "phase": game_state.phase,
-        "config": game_state.config, # GỬI TOÀN BỘ CONFIG XUỐNG FRONTEND
+        "config": game_state.config,
         "players": game_state.players,
         "logs": game_state.logs,
         "events": game_state.events,
         "projectiles": game_state.projectiles,
         "timer": game_state.phase2_timer,
-        "zone": {"x": game_state.zone_x, "y": game_state.zone_y, "r": game_state.zone_current_radius}
+        "zone": {"x": game_state.zone_x, "y": game_state.zone_y, "r": game_state.zone_current_radius},
+        "bushes": game_state.bushes,
+        "airdrops": game_state.airdrops
     }
     msg = json.dumps(data)
     for conn in active_connections:
@@ -292,10 +296,9 @@ def update_game_logic():
     weapons_dict = game_state.config["weapons"]
     shields_dict = game_state.config["shields"]
     card_w = game_state.config["character_settings"]["card_width"]
-    
-    # Khoảng cách lùi và đẩy lực Boids tự động co giãn theo kích thước Thẻ bài
     boid_radius = card_w * 0.45 
 
+    # Thu Bo
     if game_state.ticks % 100 == 0:
         game_state.zone_target_radius = max(50, game_state.zone_target_radius - 75)
         game_state.add_log("⚠️ Vòng bo đang thu hẹp!", "⚠️ The Red Zone is shrinking!")
@@ -303,6 +306,15 @@ def update_game_logic():
     if game_state.zone_current_radius > game_state.zone_target_radius:
         game_state.zone_current_radius -= 2.0
 
+    # Thả Thính (Airdrop) mỗi 15s
+    if game_state.ticks % 150 == 0 and len(game_state.airdrops) < 5:
+        # Thả ngẫu nhiên gần tâm bo
+        drop_x = game_state.zone_x + random.randint(-int(game_state.zone_current_radius/2), int(game_state.zone_current_radius/2))
+        drop_y = game_state.zone_y + random.randint(-int(game_state.zone_current_radius/2), int(game_state.zone_current_radius/2))
+        game_state.airdrops.append({"x": drop_x, "y": drop_y})
+        game_state.add_log("🎁 Một Hộp Cứu Thương đã rơi xuống đấu trường!", "🎁 An Airdrop has landed!")
+
+    # Cập nhật đạn
     new_projs =[]
     for proj in game_state.projectiles:
         proj["life"] -= 1
@@ -322,6 +334,7 @@ def update_game_logic():
         game_state.phase = "finished"
         return
 
+    # Lực đẩy Boids
     repulsion = {p["name"]:[0.0, 0.0] for p in alive_players}
     for i in range(len(alive_players)):
         for j in range(i+1, len(alive_players)):
@@ -341,11 +354,26 @@ def update_game_logic():
         s_data = shields_dict[p["shield"]]
         base_speed = max(30, 180 - w_data["weight"] - s_data["weight"]) * 0.05
 
+        # Cập nhật tàng hình (Bụi cỏ)
+        p["in_bush"] = any(calc_dist(p["x"], p["y"], b["x"], b["y"])[2] < b["r"] for b in game_state.bushes)
+
+        # Nhặt Airdrop
+        new_airdrops =[]
+        healed = False
+        for drop in game_state.airdrops:
+            if not healed and calc_dist(p["x"], p["y"], drop["x"], drop["y"])[2] < 40:
+                p["hp"] = min(p["max_hp"], p["hp"] + 150)
+                game_state.events.append({"type": "heal", "x": p["x"], "y": p["y"], "text": "+150 HP"})
+                game_state.add_log(f"💉 {p['name']} đã nhặt được Hộp Cứu Thương!", f"💉 {p['name']} looted a Health Pack!")
+                healed = True # Chỉ ăn 1 hộp
+            else:
+                new_airdrops.append(drop)
+        game_state.airdrops = new_airdrops
+
+        # Mất máu ngoài bo
         _, _, dist_to_zone = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
         outside_zone = dist_to_zone > game_state.zone_current_radius
-        
-        if outside_zone:
-            p["hp"] -= 0.8 
+        if outside_zone: p["hp"] -= 0.8 
 
         if p["hp"] <= 0:
             p["hp"] = 0
@@ -354,7 +382,7 @@ def update_game_logic():
             game_state.events.append({"type": "death"})
             continue
 
-        is_berserk = p["hp"] < (p["max_hp"] * 0.3) # Điên cuồng khi máu < 30%
+        is_berserk = p["hp"] < (p["max_hp"] * 0.3)
         is_camping = False
         if not is_berserk:
             c = p["camp_rule"]
@@ -362,9 +390,9 @@ def update_game_logic():
             if c == "top3" and alive_count > 3: is_camping = True
             if c == "top2" and alive_count > 2: is_camping = True
 
-        enemies =[e for e in alive_players if e["name"] != p["name"]]
+        # Xác định đối thủ (BỎ QUA KẺ TÀNG HÌNH TRONG BỤI CỎ, TRỪ KHI QUÁ GẦN < 60px)
+        enemies = [e for e in alive_players if e["name"] != p["name"] and (not e["in_bush"] or calc_dist(p["x"], p["y"], e["x"], e["y"])[2] < 60)]
         min_enemy_hp = min((e["hp"] for e in enemies), default=0)
-
         nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
         
         target = None
@@ -385,18 +413,24 @@ def update_game_logic():
             vx += (zx/zdist) * base_speed * 1.8
             vy += (zy/zdist) * base_speed * 1.8
         else:
+            # AI Tham Lam nhặt Airdrop nếu thiếu máu
+            nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
+            if nearest_airdrop and p["hp"] < p["max_hp"] * 0.8:
+                ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+                if adist < 300: # Thấy trong tầm mắt là rẽ qua nhặt
+                    vx += (ax/adist) * base_speed * 1.2
+                    vy += (ay/adist) * base_speed * 1.2
+
             if is_camping:
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
                 can_tank = outside_zone and p["hp"] > (p["max_hp"] * 0.3) and p["hp"] >= min_enemy_hp
                 
-                # Sợ địch nếu tiến vào quá gần vùng nhìn thấy (x2 tầm đánh lớn nhất)
                 if dist_to_enemy < (card_w * 3):
                     ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                     vx -= (ex/edist) * base_speed * 1.2
                     vy -= (ey/edist) * base_speed * 1.2 
                 else:
-                    if can_tank:
-                        pass 
+                    if can_tank: pass 
                     else:
                         if outside_zone:
                             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
@@ -443,55 +477,61 @@ def update_game_logic():
                     enemies_in_range.append((e, edist, ex, ey))
             
             if enemies_in_range:
-                actual_target_info = None
-                
-                if preferred_target:
-                    actual_target_info = next((t for t in enemies_in_range if t[0]["name"] == preferred_target["name"]), None)
-                
-                if not actual_target_info:
-                    actual_target_info = min(enemies_in_range, key=lambda t: t[1])
+                actual_target_info = next((t for t in enemies_in_range if preferred_target and t[0]["name"] == preferred_target["name"]), None)
+                if not actual_target_info: actual_target_info = min(enemies_in_range, key=lambda t: t[1])
                 
                 actual_target, adist, ax, ay = actual_target_info
 
                 t_shield_data = shields_dict[actual_target["shield"]]
-                base_dmg = w_data["dmg"]
-                if p["weapon"] == "bow" and actual_target["shield"] == "steel_shield": base_dmg /= 2.0
                 
-                multiplier = 2.0 if is_counter(p["weapon"], actual_target["shield"], weapons_dict) else 1.0
-                final_dmg = (base_dmg * multiplier) * (1.0 - t_shield_data["block"])
-                actual_target["hp"] -= final_dmg
-                p["cooldown"] = w_data["cd_ticks"]
+                # RNG NHÂN PHẨM: Né (Dodge) & Chí Mạng (Crit)
+                dodge_chance = float(t_shield_data.get("dodge", 0))
+                crit_chance = float(w_data.get("crit", 0))
+                
+                if random.random() < dodge_chance:
+                    # Kẻ thù NÉ ĐƯỢC
+                    game_state.events.append({"type": "dodge", "x": actual_target["x"], "y": actual_target["y"]})
+                    p["cooldown"] = w_data["cd_ticks"]
+                else:
+                    # TRÚNG ĐÒN
+                    base_dmg = float(w_data["dmg"])
+                    if p["weapon"] == "bow" and actual_target["shield"] == "steel_shield": base_dmg /= 2.0
+                    
+                    multiplier = 2.0 if is_counter(p["weapon"], actual_target["shield"], weapons_dict) else 1.0
+                    
+                    is_crit = False
+                    if random.random() < crit_chance:
+                        is_crit = True
+                        base_dmg *= float(w_data.get("crit_mult", 1.5))
+                    
+                    final_dmg = (base_dmg * multiplier) * (1.0 - float(t_shield_data["block"]))
+                    actual_target["hp"] -= final_dmg
+                    p["cooldown"] = w_data["cd_ticks"]
 
-                game_state.events.append({
-                    "type": "attack", "weapon": p["weapon"],
-                    "x": p["x"], "y": p["y"], "tx": actual_target["x"], "ty": actual_target["y"]
-                })
-                game_state.events.append({
-                    "type": "hurt", "weapon": actual_target["weapon"],
-                    "x": actual_target["x"], "y": actual_target["y"]
-                })
-                
-                if p["weapon"] in["bow", "dagger", "spear"]:
-                    game_state.projectiles.append({
-                        "x": p["x"], "y": p["y"], "vx": (ax/adist) * 20, "vy": (ay/adist) * 20,
-                        "life": int(adist/20), "type": p["weapon"]
+                    # Thêm Event Vẽ chữ sát thương
+                    game_state.events.append({
+                        "type": "attack", "weapon": p["weapon"],
+                        "x": p["x"], "y": p["y"], "tx": actual_target["x"], "ty": actual_target["y"],
+                        "is_crit": is_crit, "dmg": int(final_dmg)
                     })
+                    game_state.events.append({"type": "hurt", "weapon": actual_target["weapon"], "x": actual_target["x"], "y": actual_target["y"]})
+                    
+                    if p["weapon"] in["bow", "dagger", "spear"]:
+                        game_state.projectiles.append({"x": p["x"], "y": p["y"], "vx": (ax/adist)*20, "vy": (ay/adist)*20, "life": int(adist/20), "type": p["weapon"]})
 
-                if p["weapon"] in["sword", "hammer"]:
-                    kb = 10 if p["weapon"] == "sword" else 25
-                    actual_target["x"] += (ax/adist) * kb
-                    actual_target["y"] += (ay/adist) * kb
+                    if p["weapon"] in["sword", "hammer"]:
+                        kb = 10 if p["weapon"] == "sword" else 25
+                        actual_target["x"] += (ax/adist) * kb
+                        actual_target["y"] += (ay/adist) * kb
 
-                if multiplier == 2.0:
-                    game_state.add_log(f"💥 {p['name']} tiện tay khắc hệ, giáng {int(final_dmg)} HP vào {actual_target['name']}!", 
-                                       f"💥 {p['name']} counters via opportunity, deals {int(final_dmg)} dmg to {actual_target['name']}!")
-                
-                if actual_target["hp"] <= 0:
-                    actual_target["hp"] = 0
-                    actual_target["alive"] = False
-                    game_state.events.append({"type": "death"})
-                    game_state.add_log(f"💀 {p['name']} đã quét dọn {actual_target['name']}!", 
-                                       f"💀 {p['name']} killed {actual_target['name']}!")
+                    if is_crit:
+                        game_state.add_log(f"💥 BẠO KÍCH! {p['name']} chém {int(final_dmg)} HP vào {actual_target['name']}!", f"💥 CRITICAL! {p['name']} hits {int(final_dmg)} dmg on {actual_target['name']}!")
+                    
+                    if actual_target["hp"] <= 0:
+                        actual_target["hp"] = 0
+                        actual_target["alive"] = False
+                        game_state.events.append({"type": "death"})
+                        game_state.add_log(f"💀 {p['name']} đã quét dọn {actual_target['name']}!", f"💀 {p['name']} killed {actual_target['name']}!")
 
         p["x"] += vx
         p["y"] += vy

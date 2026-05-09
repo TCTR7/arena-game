@@ -9,10 +9,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 1874.2301088880372,
-        "y": 1892.4833928520754,
-        "cooldown": 3,
-        "wander_angle": 5.843820036453219
+        "x": 1361.853000986884,
+        "y": 633.2723021046631,
+        "cooldown": 0,
+        "wander_angle": 5.843820036453219,
+        "in_bush": false
     },
     "Bot_Yone_2206": {
         "name": "Bot_Yone_2206",
@@ -24,10 +25,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 834.6931615386867,
-        "y": 1002.1347198107464,
-        "cooldown": 6,
-        "wander_angle": -18.55359913404514
+        "x": 484.2862272207737,
+        "y": 1620.8820051972152,
+        "cooldown": 0,
+        "wander_angle": 28.062339305813676,
+        "in_bush": false
     },
     "Bot_Garen_2240": {
         "name": "Bot_Garen_2240",
@@ -39,10 +41,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 995.6277870332929,
-        "y": 942.5923362589173,
-        "cooldown": 2,
-        "wander_angle": -779.0366450408308
+        "x": 877.6340346920766,
+        "y": 1675.2545282534538,
+        "cooldown": 0,
+        "wander_angle": -779.2993531034766,
+        "in_bush": false
     },
     "Bot_Darius_2027": {
         "name": "Bot_Darius_2027",
@@ -54,10 +57,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 1246.2775991898948,
-        "y": 1075.6719913924962,
-        "cooldown": 6,
-        "wander_angle": 5.7700565873224905
+        "x": 1177.9913424176364,
+        "y": 375.59743058295646,
+        "cooldown": 0,
+        "wander_angle": 10.163079303895381,
+        "in_bush": true
     },
     "Bot_Ahri_6286": {
         "name": "Bot_Ahri_6286",
@@ -69,10 +73,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 394.6672569096304,
-        "y": 1673.2827255487741,
+        "x": 585.5326248904856,
+        "y": 729.2317699847132,
         "cooldown": 0,
-        "wander_angle": 0.9641326915133566
+        "wander_angle": 3.0321646062663787,
+        "in_bush": false
     },
     "Bot_Zed_2208": {
         "name": "Bot_Zed_2208",
@@ -84,10 +89,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 972.0119777458312,
-        "y": 725.0120267799429,
-        "cooldown": 4,
-        "wander_angle": 4.560287702337069
+        "x": 1223.9431171897425,
+        "y": 744.4532824441729,
+        "cooldown": 0,
+        "wander_angle": -14.907918714470524,
+        "in_bush": false
     },
     "Bot_Akali_5432": {
         "name": "Bot_Akali_5432",
@@ -99,10 +105,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 446.12168740809057,
-        "y": 338.20193518918217,
+        "x": 764.968670895233,
+        "y": 886.8219939305637,
         "cooldown": 0,
-        "wander_angle": 3.0412414022082146
+        "wander_angle": 3.0412414022082146,
+        "in_bush": false
     },
     "Bot_Teemo_1545": {
         "name": "Bot_Teemo_1545",
@@ -111,13 +118,14 @@
         "shield": "wood_shield",
         "target_rule": "counter",
         "camp_rule": "top2",
-        "hp": 0,
+        "hp": 500,
         "max_hp": 500,
-        "alive": false,
-        "x": 1093.1859599886018,
-        "y": 904.0120400109611,
-        "cooldown": 1,
-        "wander_angle": 10.095255810380488
+        "alive": true,
+        "x": 1239.11075910031,
+        "y": 1151.084020291796,
+        "cooldown": 0,
+        "wander_angle": -27.10146418819583,
+        "in_bush": false
     },
     "Bot_Vayne_7308": {
         "name": "Bot_Vayne_7308",
@@ -129,10 +137,11 @@
         "hp": 0,
         "max_hp": 500,
         "alive": false,
-        "x": 1152.2654391247236,
-        "y": 1923.6225890713526,
-        "cooldown": 0,
-        "wander_angle": 0.4631610466690579
+        "x": 1762.7806125847246,
+        "y": 1757.4804740931597,
+        "cooldown": 7,
+        "wander_angle": 4.8019378585778165,
+        "in_bush": false
     },
     "Bot_LeeSin_2803": {
         "name": "Bot_LeeSin_2803",
@@ -141,12 +150,13 @@
         "shield": "steel_shield",
         "target_rule": "nearest",
         "camp_rule": "top5",
-        "hp": 240.5500000000017,
+        "hp": 0,
         "max_hp": 500,
-        "alive": true,
-        "x": 1106.1649557105375,
-        "y": 986.5492798166537,
-        "cooldown": 22,
-        "wander_angle": 11.036838019381758
+        "alive": false,
+        "x": 674.0111453843348,
+        "y": 1260.8235415389706,
+        "cooldown": 0,
+        "wander_angle": -6.037586313048378,
+        "in_bush": false
     }
 }

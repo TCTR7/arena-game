@@ -52,20 +52,24 @@ class SoundEngine {
       osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
       gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
     }
+    else if (type === 'heal') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
+    }
+    else if (type === 'dodge') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.2);
+      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.2); osc.start(t); osc.stop(t + 0.2);
+    }
   }
 }
+// Đối tượng phát âm thanh dùng chung (Global)
 const sfx = new SoundEngine();
 
-// ĐÃ FIX: CHỌN CHÍNH XÁC GIỌNG TIẾNG VIỆT CHUẨN
 const getVietnameseVoice = () => {
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
-  
-  // Ưu tiên 1: Google Tiếng Việt (có sẵn trên trình duyệt Chrome)
   let v = voices.find(voice => voice.name === "Google Tiếng Việt");
   if (v) return v;
-  
-  // Ưu tiên 2: Bất kỳ giọng nào có mã vi-VN, vi_VN hoặc chứa chữ Vietnamese
   v = voices.find(voice => voice.lang.includes('vi') || voice.name.toLowerCase().includes('vietnamese'));
   return v;
 };
@@ -82,17 +86,25 @@ class VoiceEngine {
     const now = Date.now();
     if (now - this.lastSpeakTime < 600) return;
 
-    const attackShouts =["Ya!", "Chết đi!", "Đỡ này!", "Ha!", "Xông lên!"];
-    const hurtScreams =["Á!", "Ui da!", "Hự!", "Đau!", "Oái!"];
+    let text = "";
+    if(type === 'attack') {
+        const arr =["Ya!", "Chết đi!", "Đỡ này!", "Ha!", "Xông lên!"];
+        text = arr[Math.floor(Math.random()*arr.length)];
+    } else if(type === 'hurt') {
+        const arr =["Á!", "Ui da!", "Hự!", "Đau!", "Oái!"];
+        text = arr[Math.floor(Math.random()*arr.length)];
+    } else if (type === 'crit') {
+        text = "Chí mạng!";
+    } else if (type === 'dodge') {
+        text = "Né được rồi!";
+    }
     
-    const text = type === 'attack' ? attackShouts[Math.floor(Math.random()*attackShouts.length)] : hurtScreams[Math.floor(Math.random()*hurtScreams.length)];
+    if(!text) return;
+
     const u = new SpeechSynthesisUtterance(text);
-    
-    // Gắn giọng Việt Nam vào
     const viVoice = getVietnameseVoice();
     if (viVoice) u.voice = viVoice;
     u.lang = 'vi-VN';
-    
     u.pitch = 0.6 + Math.random() * 0.8; 
     u.rate = 1.6; 
     u.volume = 1.0;
@@ -106,7 +118,6 @@ const humanVoice = new VoiceEngine();
 const speakLog = (text, langStr, muted) => {
   if (muted || !window.speechSynthesis) return;
   const msg = new SpeechSynthesisUtterance(text);
-  
   const viVoice = getVietnameseVoice();
   if (langStr === 'vi' && viVoice) {
     msg.voice = viVoice;
@@ -118,13 +129,12 @@ const speakLog = (text, langStr, muted) => {
 
 export default function App() {
   const[gameState, setGameState] = useState(null);
-  const [started, setStarted] = useState(false);
+  const[started, setStarted] = useState(false);
   const[muted, setMuted] = useState(false);
   
   const[globalHostPwd, setGlobalHostPwd] = useState('');
   const spokenLogs = useRef(new Set());
 
-  // Kích hoạt Load Voices trên trình duyệt ngay khi vừa vào trang
   useEffect(() => {
     if(window.speechSynthesis) {
       window.speechSynthesis.onvoiceschanged = () => {
@@ -145,10 +155,11 @@ export default function App() {
           if(ev.type === 'attack') {
             sfx.play('attack', ev.weapon);
             humanVoice.shout('attack');
+            if(ev.is_crit) humanVoice.shout('crit');
           }
-          if(ev.type === 'hurt') {
-            humanVoice.shout('hurt');
-          }
+          if(ev.type === 'hurt') humanVoice.shout('hurt');
+          if(ev.type === 'dodge') { sfx.play('dodge'); humanVoice.shout('dodge'); }
+          if(ev.type === 'heal') sfx.play('heal');
           if(ev.type === 'death') sfx.play('death');
           if(ev.type === 'win') sfx.play('win');
         });
@@ -180,7 +191,7 @@ export default function App() {
           BẤM VÀO ĐÂY ĐỂ VÀO GAME (Cấp quyền Audio)
         </button>
         <p className="mt-8 text-gray-500 text-sm max-w-lg text-center">
-          * Lưu ý: Nếu MC hoặc Nhân vật nói tiếng Anh/không nói được, trình duyệt của bạn đang thiếu Giọng đọc Tiếng Việt. Vui lòng sử dụng trình duyệt <b>Google Chrome</b> hoặc Cài gói ngôn ngữ Speech-to-Text Tiếng Việt trong Cài đặt Windows/MacOS.
+          * Khuyên dùng trình duyệt Chrome/Edge để có Voice AI MC bình luận.
         </p>
       </div>
     );
@@ -213,7 +224,7 @@ export default function App() {
 // --- PHASE 1: LOBBY & HOST ---
 function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[name, setName] = useState('');
-  const [pwd, setPwd] = useState('');
+  const[pwd, setPwd] = useState('');
   const[weapon, setWeapon] = useState('sword');
   const[shield, setShield] = useState('wood_shield');
 
@@ -221,6 +232,14 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
+
+  // Xử lý Thay Đổi Vũ Khí -> Phát Âm Thanh Demo
+  const handleWeaponChange = (e) => {
+    const selectedWep = e.target.value;
+    setWeapon(selectedWep);
+    // Vừa chọn xong là gọi API Audio phát tiếng chém luôn
+    sfx.play('attack', selectedWep);
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -257,13 +276,16 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
           <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
           <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
           
-          <label className="text-sm text-gray-400 mt-2">Chọn Vũ Khí</label>
-          <select className="p-2 bg-gray-700 rounded" value={weapon} onChange={e=>setWeapon(e.target.value)}>
+          <label className="text-sm text-gray-400 mt-2 flex justify-between items-center">
+            <span>Chọn Vũ Khí</span>
+            <span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
+          </label>
+          <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={handleWeaponChange}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
 
           <label className="text-sm text-gray-400 mt-2">Chọn Khiên</label>
-          <select className="p-2 bg-gray-700 rounded" value={shield} onChange={e=>setShield(e.target.value)}>
+          <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-blue-500" value={shield} onChange={e=>setShield(e.target.value)}>
             {Object.entries(SHIELDS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
 
@@ -274,63 +296,58 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
           <h3 className="font-bold text-green-400 mb-2">Người đã vào phòng ({Object.keys(gameState.players).length}):</h3>
           <div className="flex flex-wrap gap-2">
             {Object.values(gameState.players).map(p => (
-               <span key={p.name} className="px-2 py-1 bg-gray-700 rounded text-sm">{p.name} {WEAPONS[p.weapon].e}{SHIELDS[p.shield].e}</span>
+               <span key={p.name} className="px-2 py-1 bg-gray-700 rounded text-sm shadow-sm">{p.name} {WEAPONS[p.weapon].e}{SHIELDS[p.shield].e}</span>
             ))}
           </div>
         </div>
       </div>
 
-      {/* 2. BÁCH KHOA TOÀN THƯ (ĐÃ MỞ RỘNG SIÊU CHI TIẾT) */}
-      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-[600px] overflow-y-auto custom-scrollbar">
+      {/* 2. BÁCH KHOA TOÀN THƯ */}
+      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-[650px] overflow-y-auto custom-scrollbar">
         <h2 className="text-2xl font-bold mb-4 text-yellow-400 border-b border-gray-600 pb-2">📖 Bách Khoa Cờ Nhân Phẩm</h2>
         <div className="text-sm space-y-6">
           
-          {/* Tốc độ */}
-          <div className="bg-gray-700 p-3 rounded shadow-inner">
+          <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-green-500">
             <h3 className="font-bold text-green-400 text-base mb-1">🏃 Tốc Độ Di Chuyển</h3>
-            <p>Tốc độ của nhân vật phụ thuộc vào Độ Nặng. <br/><b>Tốc độ = Base Speed - (Nặng Vũ Khí + Nặng Khiên).</b><br/>Người mang Búa + Khiên thép sẽ lết như rùa. Cầm Dao + Khiên nhỏ sẽ chạy nhanh như xe đua.</p>
+            <p>Phụ thuộc vào Độ Nặng trang bị. <br/><b>Tốc độ = Base - (Nặng VK + Nặng Khiên).</b> Càng nhẹ chạy càng nhanh.</p>
           </div>
 
-          {/* Cân bằng Khắc Hệ */}
+          <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-yellow-500">
+            <h3 className="font-bold text-yellow-400 text-base mb-1">🎲 Nhân Phẩm (RNG) & Môi Trường</h3>
+            <ul className="list-disc pl-4 mt-1 space-y-1">
+              <li><b>Chí Mạng (Crit):</b> Sát thương gây ra ngẫu nhiên x1.5 hoặc x2 tùy loại vũ khí. Dao Găm có tỉ lệ nổ Crit cực cao (30%).</li>
+              <li><b>Né Đòn (Dodge):</b> Ngẫu nhiên né 100% sát thương. Cầm Khiên Nhỏ có tới 25% cơ hội Né!</li>
+              <li><b>Bụi Cỏ (Stealth):</b> Bản đồ có các lùm cây xanh. Chui vào tàng hình, AI địch sẽ bị "mù", không thể chém bạn.</li>
+              <li><b>Hộp Tiếp Tế (Airdrop):</b> Thỉnh thoảng rớt hộp thuốc. Chạy lại nhặt hồi ngay 150 Máu!</li>
+            </ul>
+          </div>
+
           <div>
-            <h3 className="font-bold text-red-400 text-base border-b border-gray-600 pb-1 mb-2">⚔️ Sát Thương & Khắc Hệ (Gây X2 Sát thương)</h3>
+            <h3 className="font-bold text-red-400 text-base border-b border-gray-600 pb-1 mb-2">⚔️ Khắc Hệ (Sát thương x2)</h3>
             <ul className="list-disc pl-4 space-y-1 text-gray-300">
               <li><b className="text-white">Kiếm / Dao / Cung</b> chém rách <b className="text-yellow-500">Khiên Gỗ</b>.</li>
               <li><b className="text-white">Giáo / Búa</b> đập nát <b className="text-gray-400">Khiên Thép</b>.</li>
               <li><b className="text-white">Kiếm / Giáo / Cung</b> xuyên thủng <b className="text-blue-300">Khiên Nhỏ</b>.</li>
-              <li className="text-red-300">⚠️ Ngoại lệ: Cung tiễn bắn vào Khiên Thép bị giảm 50% Sát thương gốc trước khi tính Giáp!</li>
             </ul>
           </div>
 
-          {/* AI Mục Tiêu */}
-          <div>
-            <h3 className="font-bold text-purple-400 text-base border-b border-gray-600 pb-1 mb-2">🎯 Trí Tuệ AI: Cài Đặt Mục Tiêu</h3>
-            <ul className="list-disc pl-4 space-y-2 text-gray-300">
-              <li><b className="text-white">Gần nhất:</b> Gặp ai đánh đó. Rất dễ bị thả diều hoặc đánh nhầm xe tăng.</li>
-              <li><b className="text-white">Yếu HP nhất:</b> Đi săn lùng kẻ ít máu nhất map. Cực kỳ nguy hiểm để KS (cướp) mạng.</li>
-              <li><b className="text-white">Trâu HP nhất:</b> Lựa thằng nhiều máu nhất để bào. Thích hợp cho class Sát thủ đâm thọt xe tăng.</li>
-              <li><b className="text-white">Kẻ bị khắc hệ:</b> Radar thông minh tự tìm kẻ mang Khiên bị vũ khí của mình khắc chế để gây x2 Đam. Nếu không có, sẽ đánh kẻ gần nhất.</li>
-            </ul>
-          </div>
-
-          {/* AI Sinh Tồn */}
-          <div>
-            <h3 className="font-bold text-teal-400 text-base border-b border-gray-600 pb-1 mb-2">🏃 Trí Tuệ AI: Cài Đặt Sinh Tồn (Núp Lùm)</h3>
-            <p className="mb-2 text-gray-300">Game có hệ thống Vòng Bo đỏ thu hẹp dần (Trừ 8 Máu/giây nếu đứng ngoài bo).</p>
-            <ul className="list-disc pl-4 space-y-2 text-gray-300">
-              <li><b className="text-white">Khô máu:</b> Luôn lao lên phía trước tìm kẻ địch để đánh. Máu giấy rất dễ bay màu sớm.</li>
-              <li><b className="text-white">Núp tới Top 5/3/2:</b> Nhân vật sẽ né tránh giao tranh. Nếu thấy địch ở gần, lập tức bỏ chạy. <br/><b className="text-yellow-400">Đặc biệt (Tank Bo):</b> Nếu máu của nhân vật đang RẤT CAO, chúng sẽ tự động quyết định <b>đứng ngoài Bo cắn răng chịu mất máu</b> để không phải dính líu đến cuộc tàn sát bên trong Bo. Chỉ chạy vào Bo khi máu rớt xuống mức nguy hiểm.</li>
-            </ul>
-          </div>
-
-          {/* Chỉ số chi tiết */}
           <div>
             <h3 className="font-bold text-yellow-500 text-base border-b border-gray-600 pb-1 mb-2">📊 Bảng Chỉ Số Vũ Khí & Khiên</h3>
             <ul className="mt-2 space-y-2 text-gray-300">
-              {Object.values(WEAPONS).map(v => <li key={v.n} className="bg-gray-700 p-2 rounded">{v.e} <b className="text-white">{v.n}</b>: Đam <b>{v.dmg}</b> | Hồi chiêu <b>{v.cd}</b> | Tầm xa <b>{v.r}</b> | Nặng <b>{v.weight}</b></li>)}
+              {Object.values(WEAPONS).map(v => (
+                <li key={v.n} className="bg-gray-700 p-2 rounded">
+                  {v.e} <b className="text-white">{v.n}</b>: Đam <b>{v.dmg}</b> | Nặng <b>{v.weight}</b><br/>
+                  <span className="text-xs text-yellow-400">Chí mạng: {v.crit*100}% (x{v.crit_mult})</span>
+                </li>
+              ))}
             </ul>
             <ul className="mt-4 space-y-2 text-gray-300">
-              {Object.values(SHIELDS).map(v => <li key={v.n} className="bg-gray-700 p-2 rounded">{v.e} <b className="text-white">{v.n}</b>: Giảm <b>{v.b}</b> Sát thương | Nặng <b>{v.weight}</b></li>)}
+              {Object.values(SHIELDS).map(v => (
+                <li key={v.n} className="bg-gray-700 p-2 rounded">
+                  {v.e} <b className="text-white">{v.n}</b>: Đỡ <b>{v.b}</b> Đam | Nặng <b>{v.weight}</b><br/>
+                  <span className="text-xs text-green-300">Tỉ lệ Né đòn: {v.dodge*100}%</span>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -340,14 +357,13 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
       {/* 3. HOST PANEL */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-purple-400">👑 Bảng điều khiển Host</h2>
-        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host (dev123) để mở khóa" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host ..." type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === 'dev123' && (
           <div className="flex flex-col gap-3 animate-fade-in">
             <label className="text-xs text-gray-400 -mb-2">Tên Phòng</label>
             <input className="p-2 bg-gray-700 rounded" value={localConfig.room_name} onChange={e=>setLocalConfig({...localConfig, room_name: e.target.value})} placeholder="Tên phòng" />
             
-            {/* ĐÃ FIX: LABEL HIỂN THỊ CHIỀU RỘNG/CHIỀU DÀI RÕ RÀNG */}
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-xs text-gray-400 block mb-1">Chiều Ngang Map (Width)</label>
@@ -362,7 +378,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
             <div className="flex gap-4 mt-2">
               <div className="flex-1">
                 <label className="text-xs text-gray-400 block mb-1">Màu Nền Trong Bo</label>
-                <input type="color" className="p-1 bg-gray-700 rounded w-full h-10 cursor-pointer" value={localConfig.bg_color} onChange={e=>setLocalConfig({...localConfig, bg_color: e.target.value})} />
+                <input type="color" className="p-1 bg-gray-700 rounded w-full h-10 cursor-pointer" value={localConfig.bg_color} onChange={e=>setLocalConfig({...localConfig, bg_color: e.target.value})} title="Màu nền" />
               </div>
               <div className="flex-1">
                  <label className="text-xs text-gray-400 block mb-1">Giọng Đọc MC</label>
@@ -381,7 +397,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               <button onClick={handleClearPlayers} className="flex-1 bg-red-900 hover:bg-red-800 py-2 rounded text-sm font-bold shadow-md border border-red-700">🗑️ Xóa Tất Cả</button>
             </div>
 
-            <button onClick={()=>fetch(`${API_URL}/phase/strategy`,{method:'POST'})} className="bg-red-600 hover:bg-red-500 py-3 rounded font-bold text-lg mt-2 animate-pulse">🔥 BẮT ĐẦU -> LÊN CHIẾN THUẬT</button>
+            <button onClick={()=>fetch(`${API_URL}/phase/strategy`,{method:'POST'})} className="bg-red-600 hover:bg-red-500 py-3 rounded font-bold text-lg mt-2 animate-pulse shadow-lg shadow-red-500/50">🔥 BẮT ĐẦU -> LÊN CHIẾN THUẬT</button>
           </div>
         )}
       </div>
@@ -391,7 +407,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
 // --- PHASE 2: STRATEGY ---
 function Phase2({ gameState, hostPwd, setHostPwd }) {
-  const[name, setName] = useState('');
+  const [name, setName] = useState('');
   const[pwd, setPwd] = useState('');
   const[targetRule, setTargetRule] = useState('nearest');
   const[campRule, setCampRule] = useState('attack');
@@ -470,7 +486,7 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
   const vfxRef = useRef([]); 
-  
+
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
   const cardW = gameState.config.character_settings.card_width;
@@ -479,7 +495,7 @@ function Phase3({ gameState, hostPwd }) {
   const handleForceEnd = async () => {
     let pwd = hostPwd;
     if (pwd !== 'dev123') {
-      pwd = window.prompt("Bạn chưa nhập Pass Host. Vui lòng nhập Pass (dev123) để Dừng Trận Sớm:");
+      pwd = window.prompt("Nhập Pass Host (dev123) để Dừng Trận Sớm:");
     }
     if (pwd === "dev123") {
       await fetch(`${API_URL}/force_end`, {
@@ -496,19 +512,24 @@ function Phase3({ gameState, hostPwd }) {
     if (gameState.events) {
       gameState.events.forEach(ev => {
         if (ev.type === 'attack') {
-          vfxRef.current.push({
-            type: 'slash', x: ev.x, y: ev.y, tx: ev.tx, ty: ev.ty, weapon: ev.weapon, life: 8 
-          });
+          vfxRef.current.push({ type: 'slash', x: ev.x, y: ev.y, tx: ev.tx, ty: ev.ty, weapon: ev.weapon, life: 8 });
+          if(ev.is_crit) {
+            vfxRef.current.push({ type: 'text', x: ev.tx, y: ev.ty - 40, text: `💥 CRIT -${ev.dmg}`, color: '#ef4444', life: 30 });
+          } else {
+             vfxRef.current.push({ type: 'text', x: ev.tx, y: ev.ty - 40, text: `-${ev.dmg}`, color: '#fca5a5', life: 20 });
+          }
+        }
+        if (ev.type === 'dodge') {
+           vfxRef.current.push({ type: 'text', x: ev.x, y: ev.y - 40, text: `💨 MISS`, color: '#6ee7b7', life: 30 });
+        }
+        if (ev.type === 'heal') {
+           vfxRef.current.push({ type: 'text', x: ev.x, y: ev.y - 50, text: ev.text, color: '#4ade80', life: 40 });
         }
         if (ev.type === 'hurt') {
-          for (let i = 0; i < 10; i++) {
+          for (let i = 0; i < 8; i++) {
             vfxRef.current.push({
-              type: 'blood', 
-              x: ev.x + (Math.random() - 0.5) * 30, 
-              y: ev.y + (Math.random() - 0.5) * 30, 
-              vx: (Math.random() - 0.5) * 15, 
-              vy: (Math.random() - 0.5) * 15, 
-              life: 8 + Math.random() * 5
+              type: 'blood', x: ev.x, y: ev.y, 
+              vx: (Math.random() - 0.5) * 15, vy: (Math.random() - 0.5) * 15, life: 10 + Math.random() * 5
             });
           }
         }
@@ -526,14 +547,14 @@ function Phase3({ gameState, hostPwd }) {
     ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
 
-    // LAYER 2: BÊN TRONG BO (Tạo hiệu ứng thu bo chớp nháy nhẹ bằng shadow)
+    // LAYER 2: BÊN TRONG BO
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.fillStyle = gameState.config.bg_color;
     ctx.shadowBlur = 50;
-    ctx.shadowColor = '#EF4444'; // Bóng đỏ lấn vào trong bo 1 xíu
+    ctx.shadowColor = '#EF4444';
     ctx.fill();
-    ctx.shadowBlur = 0; // Tắt đi
+    ctx.shadowBlur = 0;
 
     // LAYER 3: KẺ LƯỚI GRID
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
@@ -541,16 +562,50 @@ function Phase3({ gameState, hostPwd }) {
     for(let i=0; i<cw; i+=100) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); ctx.stroke(); }
     for(let i=0; i<ch; i+=100) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); ctx.stroke(); }
 
-    // LAYER 4: VIỀN CỦA VÒNG BO ĐỎ
+    // LAYER 4: VIỀN VÒNG BO ĐỎ
     ctx.beginPath();
     ctx.arc(z.x, z.y, Math.max(0, z.r), 0, Math.PI * 2);
     ctx.strokeStyle = '#EF4444';
     ctx.lineWidth = 6;
     ctx.stroke();
 
-    // LAYER 5: VÒNG TRÒN TẦM ĐÁNH CỦA NHÂN VẬT 
+    // LAYER 5: BỤI CỎ (STEALTH BUSHES) - ĐÃ FIX MÀU XANH NỔI BẬT DÙ NỀN LÀ VÀNG
+    if(gameState.bushes) {
+      gameState.bushes.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        // Màu xanh lá đậm opacity 75% để nổi trên bất kỳ nền nào
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.75)'; 
+        ctx.fill();
+        
+        // Viền xanh lá viền đứt
+        ctx.strokeStyle = 'rgba(20, 83, 45, 0.9)'; // Dark green
+        ctx.lineWidth = 4;
+        ctx.setLineDash([15, 20]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+    }
+
+    // LAYER 6: HỘP CỨU THƯƠNG (AIRDROPS)
+    if(gameState.airdrops) {
+      gameState.airdrops.forEach(drop => {
+        ctx.fillStyle = '#854d0e'; 
+        ctx.fillRect(drop.x - 15, drop.y - 15, 30, 30);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(drop.x - 4, drop.y - 10, 8, 20);
+        ctx.fillRect(drop.x - 10, drop.y - 4, 20, 8);
+        ctx.strokeStyle = '#facc15';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#facc15';
+        ctx.strokeRect(drop.x - 15, drop.y - 15, 30, 30);
+        ctx.shadowBlur = 0;
+      });
+    }
+
+    // LAYER 7: VÒNG TRÒN TẦM ĐÁNH
     Object.values(gameState.players).forEach(p => {
-      if (!p.alive) return;
+      if (!p.alive || p.in_bush) return;
       const w_data = WEAPONS[p.weapon];
       
       let fillColor = 'rgba(255, 255, 255, 0.05)';
@@ -576,11 +631,11 @@ function Phase3({ gameState, hostPwd }) {
       ctx.shadowBlur = 0;
     });
 
-    // LAYER 6: ĐƯỜNG ĐẠN BAY XA
+    // LAYER 8: ĐƯỜNG ĐẠN BAY XA
     gameState.projectiles.forEach(p => {
       if(p.type !== 'melee') { 
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 6, 0, Math.PI*2); // Đạn bự hơn
+        ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
         ctx.fillStyle = p.type === 'dagger' ? '#9CA3AF' : p.type === 'bow' ? '#FDE047' : '#60A5FA';
         ctx.fill();
         ctx.shadowBlur = 15;
@@ -590,7 +645,7 @@ function Phase3({ gameState, hostPwd }) {
       }
     });
 
-    // LAYER 7: THẺ BÀI NHÂN VẬT CHÍNH
+    // LAYER 9: THẺ BÀI NHÂN VẬT
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) {
         ctx.fillStyle = '#4B5563'; 
@@ -600,32 +655,31 @@ function Phase3({ gameState, hostPwd }) {
         return;
       }
 
-      const isBerserk = p.hp < (p.max_hp * 0.3); // Điên cuồng khi < 30% máu
+      ctx.save(); 
+      if(p.in_bush) {
+        ctx.globalAlpha = 0.4; 
+      }
+
+      const isBerserk = p.hp < (p.max_hp * 0.3);
       const cx = p.x - cardW / 2;
       const cy = p.y - cardH / 2;
 
-      // Nền Thẻ Bài
       ctx.fillStyle = '#1F2937';
       ctx.fillRect(cx, cy, cardW, cardH);
-      
-      // Viền Thẻ Bài
       ctx.strokeStyle = isBerserk ? '#EF4444' : '#FBBF24';
-      ctx.lineWidth = isBerserk ? 4 : 2; // Berserk viền dày hơn
+      ctx.lineWidth = isBerserk ? 4 : 2;
       ctx.strokeRect(cx, cy, cardW, cardH);
 
-      // Tên (Cắt ngắn đễ không tràn thẻ)
       ctx.fillStyle = 'white';
       ctx.font = 'bold 16px sans-serif';
       ctx.textAlign = 'center';
       const shortName = p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name;
       ctx.fillText(shortName, p.x, cy + 22);
 
-      // Emoji Vũ Khí & Khiên
       ctx.font = '32px sans-serif';
       ctx.fillText(WEAPONS[p.weapon].e, p.x - 20, cy + 60);
       ctx.fillText(SHIELDS[p.shield].e, p.x + 20, cy + 60);
 
-      // Thanh Máu (HP Bar)
       const hpBoxX = cx + 8;
       const hpBoxY = cy + 80;
       const hpBoxW = cardW - 16;
@@ -641,9 +695,11 @@ function Phase3({ gameState, hostPwd }) {
       ctx.fillStyle = 'white';
       ctx.font = 'bold 12px sans-serif'; 
       ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 12);
+      
+      ctx.restore(); 
     });
 
-    // LAYER 8: VẼ VFX TRÊN CÙNG (Đè lên Thẻ Bài)
+    // LAYER 10: VẼ VFX (MÁU, CHÉM, CHỮ BAY) TRÊN CÙNG
     let activeVfx =[];
     vfxRef.current.forEach(v => {
       if (v.type === 'slash') {
@@ -672,6 +728,20 @@ function Phase3({ gameState, hostPwd }) {
         v.x += v.vx;
         v.y += v.vy;
       }
+      else if (v.type === 'text') {
+        ctx.fillStyle = v.color;
+        ctx.font = 'bold 20px "Courier New"';
+        ctx.textAlign = 'center';
+        
+        ctx.globalAlpha = Math.min(1, v.life / 20); 
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = '#000000';
+        ctx.fillText(v.text, v.x, v.y);
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
+        
+        v.y -= 1.5; 
+      }
       
       v.life -= 1;
       if (v.life > 0) activeVfx.push(v);
@@ -682,7 +752,6 @@ function Phase3({ gameState, hostPwd }) {
 
   return (
     <div className="flex w-full h-full overflow-hidden min-h-0">
-      {/* VÙNG MAP */}
       <div className="flex-1 bg-[#0b0f19] relative flex items-center justify-center p-2 min-h-0 border-r border-gray-700">
         <canvas 
           ref={canvasRef} 
@@ -690,27 +759,26 @@ function Phase3({ gameState, hostPwd }) {
           height={gameState.config.map_height} 
           className="w-full h-full object-contain rounded shadow-[0_0_25px_rgba(0,0,0,0.8)]"
         />
-        <div className="absolute top-4 left-4 bg-gray-900/90 p-3 rounded border border-gray-600 font-mono text-lg text-white font-bold shadow-lg shadow-black">
-          Người sống: <span className="text-yellow-400">{Object.values(gameState.players).filter(p=>p.alive).length}</span> | 
-          Vòng bo: <span className="text-red-400">{Math.floor(gameState.zone.r)}px</span>
+        <div className="absolute top-4 left-4 bg-gray-900/90 p-3 rounded border border-gray-600 font-mono text-lg text-white font-bold shadow-lg shadow-black flex flex-col gap-1">
+          <div>Trạng thái: <span className="text-green-400">{Object.values(gameState.players).filter(p=>p.alive).length} Sống</span></div>
+          <div>Vòng bo: <span className="text-red-400">{Math.floor(gameState.zone.r)}px</span></div>
         </div>
       </div>
 
-      {/* VÙNG CASTER PANEL BÊN PHẢI */}
       <div className="w-96 bg-gray-800 flex flex-col shrink-0 h-full min-h-0">
         <div className="p-3 bg-gray-900 font-bold border-b border-gray-700 text-purple-400 flex items-center justify-between gap-2">
           <span>🎙️ Caster Panel (Live)</span>
           <button 
             onClick={handleForceEnd} 
             className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded text-xs font-bold uppercase tracking-wider animate-pulse shadow-md"
-            title="Dừng trận đấu ngay lập tức (Người nhiều máu nhất sẽ thắng)"
+            title="Dừng trận đấu ngay lập tức"
           >
             🛑 Kết Thúc Sớm
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col-reverse custom-scrollbar">
           {gameState.logs.map((log, i) => (
-            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') || log.includes('🛑') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : 'border-blue-500 bg-gray-700'}`}>
+            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') || log.includes('🛑') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : log.includes('🎁') || log.includes('💉') ? 'border-green-500 bg-green-900/20 text-green-200' : 'border-blue-500 bg-gray-700'}`}>
               {log}
             </div>
           ))}
