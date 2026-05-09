@@ -6,8 +6,8 @@
             "weapon": "spear",
             "shield": "buckler",
             "strategy": {
-                "target_rule": "lowest_hp",
-                "camp_until": 3
+                "target_rule": "highest_hp",
+                "camp_until": 5
             }
         },
         {
@@ -16,8 +16,8 @@
             "weapon": "bow",
             "shield": "buckler",
             "strategy": {
-                "target_rule": "highest_hp",
-                "camp_until": 2
+                "target_rule": "counter",
+                "camp_until": 99
             }
         },
         {
@@ -27,7 +27,7 @@
             "shield": "buckler",
             "strategy": {
                 "target_rule": "closest",
-                "camp_until": 3
+                "camp_until": 99
             }
         },
         {
@@ -36,8 +36,8 @@
             "weapon": "bow",
             "shield": "magic_ward",
             "strategy": {
-                "target_rule": "highest_hp",
-                "camp_until": 99
+                "target_rule": "lowest_hp",
+                "camp_until": 3
             }
         },
         {
@@ -46,8 +46,8 @@
             "weapon": "bow",
             "shield": "wood_shield",
             "strategy": {
-                "target_rule": "lowest_hp",
-                "camp_until": 5
+                "target_rule": "counter",
+                "camp_until": 99
             }
         },
         {
@@ -56,8 +56,8 @@
             "weapon": "sword",
             "shield": "buckler",
             "strategy": {
-                "target_rule": "lowest_hp",
-                "camp_until": 5
+                "target_rule": "highest_hp",
+                "camp_until": 2
             }
         },
         {
@@ -67,7 +67,7 @@
             "shield": "steel_shield",
             "strategy": {
                 "target_rule": "closest",
-                "camp_until": 2
+                "camp_until": 3
             }
         },
         {
@@ -76,7 +76,7 @@
             "weapon": "dagger",
             "shield": "tower_shield",
             "strategy": {
-                "target_rule": "lowest_hp",
+                "target_rule": "counter",
                 "camp_until": 2
             }
         },
@@ -86,8 +86,8 @@
             "weapon": "sword",
             "shield": "steel_shield",
             "strategy": {
-                "target_rule": "highest_hp",
-                "camp_until": 5
+                "target_rule": "closest",
+                "camp_until": 3
             }
         },
         {
@@ -106,8 +106,8 @@
             "weapon": "spear",
             "shield": "steel_shield",
             "strategy": {
-                "target_rule": "lowest_hp",
-                "camp_until": 3
+                "target_rule": "highest_hp",
+                "camp_until": 5
             }
         },
         {
@@ -117,7 +117,7 @@
             "shield": "steel_shield",
             "strategy": {
                 "target_rule": "closest",
-                "camp_until": 99
+                "camp_until": 2
             }
         },
         {
@@ -126,7 +126,7 @@
             "weapon": "sword",
             "shield": "steel_shield",
             "strategy": {
-                "target_rule": "counter",
+                "target_rule": "lowest_hp",
                 "camp_until": 3
             },
             "color": "#6ef70b"

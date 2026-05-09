@@ -4,19 +4,21 @@
             "name": "Dao găm",
             "icon": "🗡️",
             "color": "#94a3b8",
-            "rng": 40,
-            "dmg": 18,
-            "cd": 0.4,
-            "wt": 5,
+            "min_rng": 0,
+            "rng": 35,
+            "dmg": 12,
+            "cd": 0.3,
+            "wt": 2,
             "vfx": "slash",
-            "desc": "Chém siêu nhanh, siêu nhẹ."
+            "desc": "Tốc độ chém bàn thờ. Chuyên ám sát."
         },
         "sword": {
             "name": "Kiếm dài",
             "icon": "🤺",
             "color": "#ef4444",
-            "rng": 60,
-            "dmg": 30,
+            "min_rng": 0,
+            "rng": 50,
+            "dmg": 25,
             "cd": 1.0,
             "wt": 15,
             "vfx": "slash",
@@ -26,82 +28,86 @@
             "name": "Trường giáo",
             "icon": "🔱",
             "color": "#f59e0b",
-            "rng": 120,
-            "dmg": 25,
+            "min_rng": 35,
+            "rng": 90,
+            "dmg": 22,
             "cd": 1.2,
             "wt": 20,
             "vfx": "thrust",
-            "desc": "Giữ khoảng cách cực tốt."
+            "desc": "Giữ khoảng cách, đâm thấu khiên."
         },
         "bow": {
             "name": "Cung tiễn",
             "icon": "🏹",
             "color": "#22c55e",
-            "rng": 280,
-            "dmg": 16,
+            "min_rng": 70,
+            "rng": 180,
+            "dmg": 18,
             "cd": 0.8,
             "wt": 10,
             "vfx": "arrow",
-            "desc": "Thả diều từ xa."
+            "desc": "Thả diều. Tốc độ khá nhanh."
         },
         "magic": {
             "name": "Gậy phép",
             "icon": "🪄",
             "color": "#3b82f6",
-            "rng": 200,
+            "min_rng": 50,
+            "rng": 160,
             "dmg": 45,
             "cd": 2.0,
-            "wt": 10,
+            "wt": 15,
             "vfx": "magic",
-            "desc": "Sát thương dồn cực mạnh."
+            "desc": "Đam phép nung chảy giáp sắt."
         },
         "hammer": {
             "name": "Búa tạ",
             "icon": "🔨",
             "color": "#f97316",
-            "rng": 50,
+            "min_rng": 0,
+            "rng": 45,
             "dmg": 65,
-            "cd": 2.5,
-            "wt": 45,
+            "cd": 2.2,
+            "wt": 40,
             "vfx": "bash",
-            "desc": "Phá giáp cực gắt nhưng rất nặng."
+            "desc": "Đập nát mọi thứ nhưng cực nặng."
         }
     },
     "shields": {
         "buckler": {
             "name": "Khiên nhỏ",
             "icon": "🥏",
-            "def": 0,
-            "wt": 5,
-            "desc": "Chạy cực nhanh, không đỡ được đam."
+            "def": 5,
+            "wt": 2,
+            "desc": "Siêu nhẹ, tốc độ di chuyển tối đa."
         },
         "magic_ward": {
             "name": "Khiên phép",
             "icon": "🔮",
-            "def": 15,
+            "def": 20,
             "wt": 10,
-            "desc": "Giảm 15% sát thương."
+            "desc": "Nhẹ, chống sốc sát thương."
         },
         "wood_shield": {
             "name": "Khiên gỗ",
             "icon": "🪵",
-            "def": 30,
+            "def": 35,
             "wt": 20,
-            "desc": "Giảm 30% sát thương. Cân bằng."
+            "desc": "Khá nặng, phòng thủ ổn."
         },
         "steel_shield": {
             "name": "Khiên thép",
             "icon": "🛡️",
             "def": 55,
             "wt": 45,
-            "desc": "Giảm 55% sát thương. Khá nặng."
+            "desc": "Nặng, giảm hơn nửa sát thương."
         },
         "tower_shield": {
             "name": "Khiên tháp",
             "icon": "🧱",
-            "def": 75,
-            "wt": 70,
-            "desc": "Bức tường di động. Giảm 75% sát thương."
+            "def": 70,
+            "wt": 65,
+            "desc": "Bức tường di động. Biến bạn thành rùa bò."
         }
     },
     "synergies": {
@@ -115,11 +121,11 @@
         ],
         "spear": [
             "steel_shield",
-            "buckler"
+            "wood_shield"
         ],
         "bow": [
-            "magic_ward",
-            "tower_shield"
+            "buckler",
+            "magic_ward"
         ],
         "magic": [
             "steel_shield",

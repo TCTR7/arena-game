@@ -11,24 +11,27 @@ CONFIG_FILE = "game_config.json"
 
 DEFAULT_STATS = {
     "weapons": {
-        "dagger": {"name": "Dao găm", "icon": "🗡️", "color": "#94a3b8", "min_rng": 0, "rng": 40, "dmg": 18, "cd": 0.4, "wt": 5, "vfx": "slash", "desc": "Áp sát chém siêu nhanh."},
-        "sword":  {"name": "Kiếm dài", "icon": "🤺", "color": "#ef4444", "min_rng": 0, "rng": 60, "dmg": 30, "cd": 1.0, "wt": 15, "vfx": "slash", "desc": "Cân bằng công thủ."},
-        "spear":  {"name": "Trường giáo", "icon": "🔱", "color": "#f59e0b", "min_rng": 40, "rng": 120, "dmg": 25, "cd": 1.2, "wt": 20, "vfx": "thrust", "desc": "Đâm xa, lùi lại nếu địch lại gần."},
-        "bow":    {"name": "Cung tiễn", "icon": "🏹", "color": "#22c55e", "min_rng": 80, "rng": 280, "dmg": 16, "cd": 0.8, "wt": 10, "vfx": "arrow", "desc": "Thả diều, không thể bắn cận chiến."},
-        "magic":  {"name": "Gậy phép", "icon": "🪄", "color": "#3b82f6", "min_rng": 60, "rng": 200, "dmg": 45, "cd": 2.0, "wt": 10, "vfx": "magic", "desc": "Đam to, cần giữ khoảng cách."},
-        "hammer": {"name": "Búa tạ", "icon": "🔨", "color": "#f97316", "min_rng": 0, "rng": 50, "dmg": 65, "cd": 2.5, "wt": 45, "vfx": "bash", "desc": "Phá giáp cực gắt nhưng rất nặng."}
+        "dagger": {"name": "Dao găm", "icon": "🗡️", "color": "#94a3b8", "min_rng": 0, "rng": 35, "dmg": 12, "cd": 0.3, "wt": 2, "vfx": "slash", "desc": "Tốc độ chém bàn thờ. Chuyên ám sát."},
+        "sword":  {"name": "Kiếm dài", "icon": "🤺", "color": "#ef4444", "min_rng": 0, "rng": 50, "dmg": 25, "cd": 1.0, "wt": 15, "vfx": "slash", "desc": "Cân bằng công thủ."},
+        "spear":  {"name": "Trường giáo", "icon": "🔱", "color": "#f59e0b", "min_rng": 35, "rng": 90, "dmg": 22, "cd": 1.2, "wt": 20, "vfx": "thrust", "desc": "Giữ khoảng cách, đâm thấu khiên."},
+        "bow":    {"name": "Cung tiễn", "icon": "🏹", "color": "#22c55e", "min_rng": 70, "rng": 180, "dmg": 18, "cd": 0.8, "wt": 10, "vfx": "arrow", "desc": "Thả diều. Tốc độ khá nhanh."},
+        "magic":  {"name": "Gậy phép", "icon": "🪄", "color": "#3b82f6", "min_rng": 50, "rng": 160, "dmg": 45, "cd": 2.0, "wt": 15, "vfx": "magic", "desc": "Đam phép nung chảy giáp sắt."},
+        "hammer": {"name": "Búa tạ", "icon": "🔨", "color": "#f97316", "min_rng": 0, "rng": 45, "dmg": 65, "cd": 2.2, "wt": 40, "vfx": "bash", "desc": "Đập nát mọi thứ nhưng cực nặng."}
     },
     "shields": {
-        "buckler":      {"name": "Khiên nhỏ", "icon": "🥏", "def": 0, "wt": 5, "desc": "Chạy cực nhanh, không đỡ được đam."},
-        "magic_ward":   {"name": "Khiên phép", "icon": "🔮", "def": 15, "wt": 10, "desc": "Giảm 15% sát thương."},
-        "wood_shield":  {"name": "Khiên gỗ", "icon": "🪵", "def": 30, "wt": 20, "desc": "Giảm 30% sát thương. Cân bằng."},
-        "steel_shield": {"name": "Khiên thép", "icon": "🛡️", "def": 55, "wt": 45, "desc": "Giảm 55% sát thương. Khá nặng."},
-        "tower_shield": {"name": "Khiên tháp", "icon": "🧱", "def": 75, "wt": 70, "desc": "Bức tường di động. Giảm 75% sát thương."}
+        "buckler":      {"name": "Khiên nhỏ", "icon": "🥏", "def": 5, "wt": 2, "desc": "Siêu nhẹ, tốc độ di chuyển tối đa."},
+        "magic_ward":   {"name": "Khiên phép", "icon": "🔮", "def": 20, "wt": 10, "desc": "Nhẹ, chống sốc sát thương."},
+        "wood_shield":  {"name": "Khiên gỗ", "icon": "🪵", "def": 35, "wt": 20, "desc": "Khá nặng, phòng thủ ổn."},
+        "steel_shield": {"name": "Khiên thép", "icon": "🛡️", "def": 55, "wt": 45, "desc": "Nặng, giảm hơn nửa sát thương."},
+        "tower_shield": {"name": "Khiên tháp", "icon": "🧱", "def": 70, "wt": 65, "desc": "Bức tường di động. Biến bạn thành rùa bò."}
     },
     "synergies": {
-        "dagger": ["magic_ward", "wood_shield"], "sword": ["wood_shield", "buckler"],
-        "spear": ["steel_shield", "buckler"], "bow": ["magic_ward", "tower_shield"],
-        "magic": ["steel_shield", "tower_shield"], "hammer": ["tower_shield", "steel_shield"]
+        "dagger": ["magic_ward", "wood_shield"], 
+        "sword": ["wood_shield", "buckler"],
+        "spear": ["steel_shield", "wood_shield"], 
+        "bow": ["buckler", "magic_ward"],
+        "magic": ["steel_shield", "tower_shield"], 
+        "hammer": ["tower_shield", "steel_shield"]
     }
 }
 
@@ -67,9 +70,7 @@ def get_random_vibrant_hex():
 
 db = load_data()
 stats = load_game_config()
-game_state = {
-    "status": "waiting", "players": [], "particles": [], "logs": ["🎙️ Server đã sẵn sàng!"], "winner_info": None, "ready_count": 0, "timer": 0, "config": db["config"]
-}
+game_state = {"status": "waiting", "players": [], "particles": [], "logs": ["🎙️ Server đã tải luật chơi Cân Bằng Mới!"], "winner_info": None, "ready_count": 0, "timer": 0, "config": db["config"]}
 active_connections = []
 
 class PlayerReg(BaseModel): name: str; password: str; weapon: str; shield: str
@@ -85,6 +86,7 @@ async def broadcast_state():
 
 @app.get("/stats")
 def get_stats(): return load_game_config()
+
 @app.get("/lobby")
 def get_lobby(): return db["players"]
 
@@ -101,7 +103,7 @@ async def add_bots():
         if any(p["name"] == name for p in db["players"]): continue
         db["players"].append({
             "name": name, "password": "bot", "weapon": random.choice(list(stats["weapons"].keys())), "shield": random.choice(list(stats["shields"].keys())),
-            "strategy": {"target_rule": random.choice(["closest", "lowest_hp", "counter"]), "camp_until": random.choice([99, 5, 3])},
+            "strategy": {"target_rule": random.choice(["closest", "lowest_hp", "highest_hp", "counter"]), "camp_until": random.choice([99, 5, 3])},
             "color": get_random_vibrant_hex()
         })
     save_data(db); await broadcast_state(); return {"status": "success"}
@@ -124,15 +126,14 @@ async def update_strat(data: PlayerStrategy):
         if p["name"] == data.name:
             if p["password"] != data.password: return {"status": "error", "message": "Sai pass!"}
             p["strategy"] = {"target_rule": data.target_rule, "camp_until": data.camp_until}
-            save_data(db)
-            game_state["ready_count"] = len([px for px in db["players"] if px["strategy"]])
+            save_data(db); game_state["ready_count"] = len([px for px in db["players"] if px["strategy"]])
             await broadcast_state(); return {"status": "success"}
     return {"status": "error", "message": "Không tìm thấy tên!"}
 
 @app.post("/rematch")
 async def rematch():
     for p in db["players"]: p["strategy"] = None
-    save_data(db); game_state.update({"status": "waiting", "winner_info": None, "logs": ["🎙️ Tái đấu! Anh em xếp lại chiến thuật!"], "timer": 0, "ready_count": 0, "players": []})
+    save_data(db); game_state.update({"status": "waiting", "winner_info": None, "logs": ["🎙️ Tái đấu! Ẩn chứa nhiều ân oán!"], "timer": 0, "ready_count": 0, "players": []})
     await broadcast_state(); return {"status": "success"}
 
 @app.post("/reset-all")
@@ -154,15 +155,16 @@ async def countdown_task():
 
 async def start_game_engine():
     conf = db["config"]; players = []; st = load_game_config()
-    game_state["logs"] = ["🎙️ TRẬN CHIẾN BẮT ĐẦU!"]
+    game_state["logs"] = ["🎙️ TRẬN ĐẤU BẮT ĐẦU!"]
     for p in db["players"]:
         w, s = st["weapons"][p["weapon"]], st["shields"][p["shield"]]
-        speed = max(20, 150 - (w["wt"] + s["wt"]))
+        # Tốc độ tối đa 160. Tối thiểu 30.
+        speed = max(30, 160 - (w["wt"] + s["wt"]))
         players.append({
             "name": p["name"], "weapon": p["weapon"], "shield": p["shield"], 
             "icon": w["icon"], "s_icon": s["icon"], "color": p.get("color", "#fff"),
             "x": random.randint(50, conf["w"]-50), "y": random.randint(50, conf["h"]-50),
-            "hp": 200, "max_hp": 200, "min_rng": w.get("min_rng", 0), "range": w["rng"], "speed": speed, 
+            "hp": 300, "max_hp": 300, "min_rng": w.get("min_rng", 0), "range": w["rng"], "speed": speed, 
             "dmg": w["dmg"], "def_percent": s["def"], "cd": 0, "max_cd": w["cd"] * 10, 
             "strat": p["strategy"], "vfx": w["vfx"]
         })
@@ -178,7 +180,7 @@ async def game_loop():
 
         if len(alive) <= 1:
             game_state["status"] = "finished"; game_state["winner_info"] = alive[0] if alive else None
-            game_state["logs"].append(f"🏆 TRẬN ĐẤU KẾT THÚC SAU {match_time} GIÂY!")
+            game_state["logs"].append(f"🏆 KẾT THÚC SAU {match_time} GIÂY!")
             await broadcast_state(); break
         
         game_state["particles"] = []
@@ -187,49 +189,59 @@ async def game_loop():
             enemies = [e for e in alive if e["name"] != p["name"]]
             if not enemies: continue
             
-            closest = min(enemies, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
-            dist_to_closest = math.hypot(closest["x"]-p["x"], closest["y"]-p["y"])
+            # --- BERSERK: Tức nước vỡ bờ (<30% HP là 90/300) ---
+            if p["hp"] < 90 and p["strat"]["camp_until"] < 99:
+                p["strat"]["camp_until"] = 99
+                game_state["logs"].append(f"🔥 [{match_time}s] {p['name']} hóa điên bật mode tử chiến!")
 
-            # 1. NÚP LÙM (Sợ hãi bỏ chạy)
+            # --- AI NÚP LÙM (Vector Evasion) ---
             if len(alive) > p["strat"]["camp_until"]:
-                if dist_to_closest < 350:
-                    dx, dy = closest["x"] - p["x"], closest["y"] - p["y"]
-                    mag = max(dist_to_closest, 0.1)
-                    move_x, move_y = -(dx/mag), -(dy/mag)
-                    # Né tường
-                    if p["x"] < 100: move_x += 1.0
-                    if p["x"] > conf["w"] - 100: move_x -= 1.0
-                    if p["y"] < 100: move_y += 1.0
-                    if p["y"] > conf["h"] - 100: move_y -= 1.0
+                move_x, move_y = 0.0, 0.0
+                in_danger = False
+                for e in enemies:
+                    dist = math.hypot(e["x"] - p["x"], e["y"] - p["y"])
+                    danger_zone = e["range"] + 40 
+                    if dist < danger_zone:
+                        in_danger = True
+                        push = (danger_zone - dist) / danger_zone
+                        dx, dy = p["x"] - e["x"], p["y"] - e["y"]
+                        mag = max(math.hypot(dx, dy), 0.1)
+                        move_x += (dx / mag) * push; move_y += (dy / mag) * push
+
+                if in_danger:
+                    if p["x"] < 100: move_x += 1.5
+                    if p["x"] > conf["w"] - 100: move_x -= 1.5
+                    if p["y"] < 100: move_y += 1.5
+                    if p["y"] > conf["h"] - 100: move_y -= 1.5
                     f_mag = max(math.hypot(move_x, move_y), 0.1)
-                    p["x"] += (move_x/f_mag) * (p["speed"] * 1.4) * tick
-                    p["y"] += (move_y/f_mag) * (p["speed"] * 1.4) * tick
+                    p["x"] += (move_x / f_mag) * (p["speed"] * 1.5) * tick
+                    p["y"] += (move_y / f_mag) * (p["speed"] * 1.5) * tick
+
+                p["x"] = max(20, min(conf["w"]-20, p["x"])); p["y"] = max(20, min(conf["h"]-20, p["y"]))
                 continue
 
-            # 2. XÁC ĐỊNH MỤC TIÊU TẤN CÔNG
+            # --- AI CHIẾN ĐẤU ---
             rule = p["strat"]["target_rule"]
             if rule == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
             elif rule == "highest_hp": target = max(enemies, key=lambda e: e["hp"])
             elif rule == "counter":
                 cnts = [e for e in enemies if e["shield"] in st["synergies"].get(p["weapon"], [])]
-                target = min(cnts, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"])) if cnts else closest
-            else: target = closest
+                target = min(cnts, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"])) if cnts else min(enemies, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
+            else: target = min(enemies, key=lambda e: math.hypot(e["x"]-p["x"], e["y"]-p["y"]))
 
             dist = math.hypot(target["x"]-p["x"], target["y"]-p["y"])
             ang = math.atan2(target["y"]-p["y"], target["x"]-p["x"])
 
-            # 3. KITING (Thả diều) & CHASER (Truy đuổi)
+            # Thả diều vs Truy đuổi
             if dist < p["min_rng"]:
-                # Địch vào quá gần (Ví dụ cầm Cung bị Kiếm áp sát) -> Bỏ chạy ngược lại
                 p["x"] -= math.cos(ang) * p["speed"] * tick
                 p["y"] -= math.sin(ang) * p["speed"] * tick
-            elif dist > p["range"] - 10:
-                # Địch ở quá xa -> Chạy tới
+            elif dist > p["range"] - 5:
                 p["x"] += math.cos(ang) * p["speed"] * tick
                 p["y"] += math.sin(ang) * p["speed"] * tick
             elif p["cd"] <= 0:
-                # TRONG TẦM ĐÁNH -> Khai hỏa
-                synergy_mult = 1.5 if target["shield"] in st["synergies"].get(p["weapon"], []) else 1.0
+                # SÁT THƯƠNG = ĐAM GỐC * (x2 NẾU KHẮC HỆ) * (1 - % GIÁP)
+                synergy_mult = 2.0 if target["shield"] in st["synergies"].get(p["weapon"], []) else 1.0
                 def_mult = 1.0 - (target["def_percent"] / 100.0)
                 final_dmg = max(1, int(p["dmg"] * synergy_mult * def_mult))
                 target["hp"] -= final_dmg
@@ -237,10 +249,9 @@ async def game_loop():
                 
                 game_state["particles"].append({"x1": p["x"], "y1": p["y"], "x2": target["x"], "y2": target["y"], "c": p["color"], "type": p["vfx"]})
                 
-                if target["hp"] <= 0: game_state["logs"].append(f"[{match_time}s] 💀 {p['name']} tiễn {target['name']} lên bảng đếm số!")
-                elif synergy_mult > 1.0 and random.random() > 0.8: game_state["logs"].append(f"[{match_time}s] ⚠️ {p['name']} giáng đòn khắc hệ vào {target['name']}!")
+                if target["hp"] <= 0: game_state["logs"].append(f"[{match_time}s] 💀 {p['name']} tiễn {target['name']} lên bảng!")
+                elif synergy_mult > 1.0 and random.random() > 0.8: game_state["logs"].append(f"[{match_time}s] ⚡ {p['name']} giáng đòn CHÍ MẠNG vào {target['name']}!")
 
-            # Chặn ranh giới map
             p["x"] = max(20, min(conf["w"]-20, p["x"])); p["y"] = max(20, min(conf["h"]-20, p["y"]))
             
         await broadcast_state(); await asyncio.sleep(tick)
