@@ -61,6 +61,8 @@ class GameState:
         
         self.ticks = 0
         self.phase2_timer = 180
+        self.reveal_timer = 25 # Thời gian hiển thị Panel Công Bố Chiến Thuật (25 giây)
+        
         self.zone_target_radius = 2000
         self.zone_current_radius = 2000
         self.zone_x = 1000
@@ -162,7 +164,6 @@ def set_strategy(req: StrategyReq):
 def add_bots():
     names =["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin"]
     base_hp = game_state.config["character_settings"]["base_hp"]
-    
     for name in names:
         bot_name = f"Bot_{name}_{random.randint(1000,9999)}"
         game_state.players[bot_name] = {
@@ -191,6 +192,9 @@ def set_phase(phase: str):
     game_state.phase = phase
     if phase == "strategy":
         game_state.phase2_timer = 180
+    elif phase == "reveal":
+        # Màn hình công bố chiến thuật
+        game_state.reveal_timer = 25
     elif phase == "playing":
         game_state.logs =[]
         game_state.add_log("Trận chiến sinh tồn bắt đầu!", "Battle Royale started!")
@@ -248,6 +252,7 @@ async def broadcast():
         "events": game_state.events,
         "projectiles": game_state.projectiles,
         "timer": game_state.phase2_timer,
+        "reveal_timer": game_state.reveal_timer, # Truyền timer mới xuống Client
         "zone": {"x": game_state.zone_x, "y": game_state.zone_y, "r": game_state.zone_current_radius},
         "bushes": game_state.bushes,
         "airdrops": game_state.airdrops
@@ -281,10 +286,17 @@ def is_counter(weap, shield, weapons_dict):
 def update_game_logic():
     game_state.ticks += 1
     
+    # Xử lý tự động nhảy Phase
     if game_state.phase == "strategy" and game_state.ticks % 10 == 0:
         game_state.phase2_timer -= 1
         if game_state.phase2_timer <= 0:
-            set_phase("playing")
+            set_phase("reveal") # Hết giờ Setup thì nhảy sang công bố chiến thuật
+        return
+
+    if game_state.phase == "reveal" and game_state.ticks % 10 == 0:
+        game_state.reveal_timer -= 1
+        if game_state.reveal_timer <= 0:
+            set_phase("playing") # Hết giờ công bố thì vào Game
         return
 
     if game_state.phase != "playing": return
@@ -349,7 +361,6 @@ def update_game_logic():
 
         p["in_bush"] = any(calc_dist(p["x"], p["y"], b["x"], b["y"])[2] < b["r"] for b in game_state.bushes)
 
-        # Nhặt Airdrop
         new_airdrops =[]
         healed = False
         for drop in game_state.airdrops:
@@ -398,32 +409,6 @@ def update_game_logic():
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
         panic_zone = outside_zone and (not is_camping or p["hp"] < (p["max_hp"] * 0.5))
 
-        # =========================================================
-        # TRÍ TUỆ AI: TRANH GIÀNH AIRDROP (HỘP CỨU THƯƠNG)
-        # =========================================================
-        wants_drop = False
-        nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
-
-        if nearest_airdrop and not panic_zone:
-            ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-            drop_in_zone = calc_dist(ax, ay, game_state.zone_x, game_state.zone_y)[2] <= game_state.zone_current_radius
-            
-            # Quét xem có địch canh thính không
-            enemies_near_drop = [e for e in enemies if calc_dist(e["x"], e["y"], ax, ay)[2] < 250]
-            drop_is_safe = len(enemies_near_drop) == 0
-
-            if drop_in_zone and adist < 500:
-                if is_camping:
-                    # Núp lùm: Chỉ nhặt khi sắp chết, hoặc an toàn
-                    if p["hp"] < (p["max_hp"] * 0.4):
-                        wants_drop = True  
-                    elif drop_is_safe and p["hp"] < (p["max_hp"] * 0.8):
-                        wants_drop = True  
-                else:
-                    # Hổ báo: Chỉ cần mất máu là ra tranh
-                    if p["hp"] < (p["max_hp"] * 0.75):
-                        wants_drop = True
-
         if panic_zone:
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
             vx += (zx/zdist) * base_speed * 1.8
@@ -434,12 +419,14 @@ def update_game_logic():
                 if edist < w_data["max_rng"] * 0.8:
                     vx -= (ex/edist) * base_speed * 1.5
                     vy -= (ey/edist) * base_speed * 1.5
-        elif wants_drop:
-            # GHI ĐÈ DI CHUYỂN: Lao ra ăn thính với tốc độ x1.5
-            ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-            vx += (ax/adist) * base_speed * 1.5
-            vy += (ay/adist) * base_speed * 1.5
         else:
+            nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
+            if nearest_airdrop and p["hp"] < p["max_hp"] * 0.8:
+                ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+                if adist < 300: 
+                    vx += (ax/adist) * base_speed * 1.2
+                    vy += (ay/adist) * base_speed * 1.2
+
             if is_camping:
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
                 can_tank = outside_zone and p["hp"] > (p["max_hp"] * 0.3) and p["hp"] >= min_enemy_hp
@@ -464,7 +451,7 @@ def update_game_logic():
                     dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
                     
                     if p["cooldown"] > 0:
-                        if p["weapon"] in["bow", "spear", "dagger"]:
+                        if p["weapon"] in ["bow", "spear", "dagger"]:
                             vx -= (dx/dist) * base_speed * 0.45
                             vy -= (dy/dist) * base_speed * 0.45
                         else:
