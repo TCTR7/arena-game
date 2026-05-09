@@ -145,7 +145,14 @@ def register_player(req: RegisterReq):
         "y": random.randint(100, game_state.config["map_height"] - 100),
         "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2),
         "in_bush": False,
-        "flash_red": False
+        "flash_red": False,
+        "kills": 0,
+        "killed_names":[],
+        "heals_looted": 0,
+        "damage_dealt": 0.0,
+        "damage_taken": 0.0,
+        "angry_ticks": 0,       # THÊM: Thời gian nổi điên khi bị đánh trúng
+        "last_attacker": ""     # THÊM: Lưu tên kẻ vừa đánh mình
     }
     game_state.save_data()
     return {"status": "ok"}
@@ -161,7 +168,7 @@ def set_strategy(req: StrategyReq):
 
 @app.post("/api/bots")
 def add_bots():
-    names =["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin"]
+    names =["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin", "Malphite", "Jinx", "Talon", "Irelia"]
     base_hp = game_state.config["character_settings"]["base_hp"]
     for name in names:
         bot_name = f"Bot_{name}_{random.randint(1000,9999)}"
@@ -176,7 +183,14 @@ def add_bots():
             "y": random.randint(100, game_state.config["map_height"] - 100),
             "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2),
             "in_bush": False,
-            "flash_red": False
+            "flash_red": False,
+            "kills": 0,
+            "killed_names":[],
+            "heals_looted": 0,
+            "damage_dealt": 0.0,
+            "damage_taken": 0.0,
+            "angry_ticks": 0,
+            "last_attacker": ""
         }
     game_state.save_data()
     return {"status": "ok"}
@@ -218,6 +232,14 @@ def set_phase(phase: str):
             p["cooldown"] = 0
             p["in_bush"] = False
             p["flash_red"] = False
+            p["kills"] = 0
+            p["killed_names"] =[]
+            p["heals_looted"] = 0
+            p["damage_dealt"] = 0.0
+            p["damage_taken"] = 0.0
+            p["angry_ticks"] = 0
+            p["last_attacker"] = ""
+            
     elif phase == "waiting":
         game_state.load_config()
         game_state.save_data()
@@ -320,7 +342,7 @@ def update_game_logic():
         game_state.add_log("🔥 Vòng bo đã thiêu rụi toàn bộ bụi cỏ!", "🔥 The Red Zone burned all bushes!")
 
     drop_interval = 450 if game_state.zone_current_radius <= 50 else 150
-    if game_state.ticks % drop_interval == 0 and len(game_state.airdrops) < 5:
+    if game_state.ticks % drop_interval == 0 and len(game_state.airdrops) < 5 and game_state.zone_current_radius > 200:
         safe_r = max(100, int(game_state.zone_current_radius / 2))
         drop_x = game_state.zone_x + random.randint(-safe_r, safe_r)
         drop_y = game_state.zone_y + random.randint(-safe_r, safe_r)
@@ -360,6 +382,11 @@ def update_game_logic():
 
     for p in alive_players:
         p["flash_red"] = False
+        
+        # 1. Quản lý trạng thái "Tức giận" (Vengeance)
+        if p["angry_ticks"] > 0:
+            p["angry_ticks"] -= 1
+            
         if p["cooldown"] > 0: p["cooldown"] -= 1
 
         w_data = weapons_dict[p["weapon"]]
@@ -373,9 +400,11 @@ def update_game_logic():
         for drop in game_state.airdrops:
             if not healed and calc_dist(p["x"], p["y"], drop["x"], drop["y"])[2] < 40:
                 p["hp"] = min(p["max_hp"], p["hp"] + 150)
+                p["heals_looted"] += 1
                 game_state.events.append({"type": "heal", "x": p["x"], "y": p["y"], "text": "+150 HP"})
                 game_state.add_log(f"💉 {p['name']} đã nhặt được Hộp Cứu Thương!", f"💉 {p['name']} looted a Health Pack!")
                 healed = True
+                p["angry_ticks"] = 0 # Ăn máu xong thì hết tức giận
             else:
                 new_airdrops.append(drop)
         game_state.airdrops = new_airdrops
@@ -390,6 +419,7 @@ def update_game_logic():
         if outside_zone: 
             p["hp"] -= zone_dmg 
             p["flash_red"] = True
+            p["damage_taken"] += zone_dmg
 
         if p["hp"] <= 0:
             p["hp"] = 0
@@ -398,8 +428,10 @@ def update_game_logic():
             game_state.events.append({"type": "death"})
             continue
 
-        is_berserk = p["hp"] < (p["max_hp"] * 0.3)
-        is_fleeing = p["hp"] < (p["max_hp"] * 0.35) 
+        # 2. XÁC ĐỊNH TÂM LÝ AI (AI PSYCHOLOGY)
+        is_angry = p["angry_ticks"] > 0
+        is_berserk = p["hp"] < (p["max_hp"] * 0.25) or is_angry # Nổi điên khi máu < 25% HOẶC vừa bị đánh trúng
+        is_fleeing = (p["hp"] < (p["max_hp"] * 0.40)) and not is_berserk
         
         is_camping = False
         if not is_fleeing and not is_berserk:
@@ -416,136 +448,151 @@ def update_game_logic():
         min_enemy_hp = min((e["hp"] for e in enemies), default=0)
         nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
         
+        dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
+        
         target = None
         if enemies:
-            if p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
+            if p["target_rule"] == "nearest": target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
+            elif p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "tankiest": target = max(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "counter":
                 counters =[e for e in enemies if is_counter(p["weapon"], e["shield"], weapons_dict)]
                 target = min(counters, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if counters else min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
-            else:
-                target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
+            
+            # TRÍ TUỆ BÁO THÙ: Nếu đang nổi điên, ưu tiên đập thằng vừa đánh mình
+            if is_angry and p["last_attacker"]:
+                revenge_target = next((e for e in enemies if e["name"] == p["last_attacker"]), None)
+                if revenge_target: target = revenge_target
 
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
+        
+        # 3. LỰC ĐẨY CỦA TƯỜNG (Wall Repulsion) - Chống kẹt vào góc chết 90 độ
+        wall_margin = 120
+        if p["x"] < wall_margin: 
+            vx += ((wall_margin - p["x"]) / wall_margin) * base_speed * 1.5
+        elif p["x"] > w_map - wall_margin: 
+            vx -= ((p["x"] - (w_map - wall_margin)) / wall_margin) * base_speed * 1.5
+            
+        if p["y"] < wall_margin: 
+            vy += ((wall_margin - p["y"]) / wall_margin) * base_speed * 1.5
+        elif p["y"] > h_map - wall_margin: 
+            vy -= ((p["y"] - (h_map - wall_margin)) / wall_margin) * base_speed * 1.5
+
+        nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
+        adist = 9999
+        drop_in_zone = False
+        
+        if nearest_airdrop:
+            ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+            _, _, d_to_z = calc_dist(nearest_airdrop["x"], nearest_airdrop["y"], game_state.zone_x, game_state.zone_y)
+            drop_in_zone = d_to_z <= game_state.zone_current_radius
+
+        is_desperate_for_heal = p["hp"] < (p["max_hp"] * 0.40) and nearest_airdrop and drop_in_zone and adist < 1500
+        is_idle_healing = (p["hp"] < p["max_hp"] * 0.95) and nearest_airdrop and drop_in_zone and (dist_to_enemy > 400)
+
         panic_zone = outside_zone and (not is_camping or p["hp"] < (p["max_hp"] * 0.5))
 
-        # =========================================================================
-        # ĐÃ FIX: TRÍ TUỆ NÚP LÙM - ĐI TÌM BO VÀ BỤI CỎ THÔNG MINH BẰNG VECTOR
-        # =========================================================================
         if panic_zone:
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
             vx += (zx/zdist) * base_speed * 1.8
             vy += (zy/zdist) * base_speed * 1.8
             
-            if nearest_enemy:
+            if nearest_enemy and dist_to_enemy < w_data["max_rng"] * 0.8:
                 ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
-                if edist < w_data["max_rng"] * 0.8:
-                    vx -= (ex/edist) * base_speed * 1.5
-                    vy -= (ey/edist) * base_speed * 1.5
+                vx -= (ex/edist) * base_speed * 1.5
+                vy -= (ey/edist) * base_speed * 1.5
 
+        elif is_desperate_for_heal:
+            ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+            vx += (ax/adist) * base_speed * 1.7
+            vy += (ay/adist) * base_speed * 1.7
+            if nearest_enemy and dist_to_enemy < w_data["max_rng"]:
+                ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
+                vx -= (ex/edist) * base_speed * 1.0
+                vy -= (ey/edist) * base_speed * 1.0
+
+        elif is_idle_healing:
+            ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+            vx += (ax/adist) * base_speed * 1.3
+            vy += (ay/adist) * base_speed * 1.3
+
+        elif is_fleeing:
+            nearest_bush = min(game_state.bushes, key=lambda b: calc_dist(p["x"], p["y"], b["x"], b["y"])[2], default=None)
+            bdist = calc_dist(p["x"], p["y"], nearest_bush["x"], nearest_bush["y"])[2] if nearest_bush else 9999
+
+            if p["in_bush"]:
+                pass
+            elif nearest_bush and bdist < 1000:
+                bx, by, _ = calc_dist(p["x"], p["y"], nearest_bush["x"], nearest_bush["y"])
+                vx += (bx/bdist) * base_speed * 1.5
+                vy += (by/bdist) * base_speed * 1.5
+            elif nearest_enemy:
+                ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
+                vx -= (ex/edist) * base_speed * 1.5
+                vy -= (ey/edist) * base_speed * 1.5
         else:
-            nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
-            adist = 9999
-            drop_in_zone = False
-            if nearest_airdrop:
-                ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                _, _, d_to_z = calc_dist(nearest_airdrop["x"], nearest_airdrop["y"], game_state.zone_x, game_state.zone_y)
-                drop_in_zone = d_to_z <= game_state.zone_current_radius
-
-            is_desperate_for_heal = p["hp"] < (p["max_hp"] * 0.40) and nearest_airdrop and drop_in_zone and adist < 1500
-            is_idle_healing = (p["hp"] < p["max_hp"] * 0.95) and nearest_airdrop and drop_in_zone and (not nearest_enemy or calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] > 400)
-
-            if is_desperate_for_heal:
+            if nearest_airdrop and p["hp"] < (p["max_hp"] * 0.85) and adist < 350 and drop_in_zone:
                 ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                vx += (ax/adist) * base_speed * 1.7
-                vy += (ay/adist) * base_speed * 1.7
-                if nearest_enemy and calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] < w_data["max_rng"]:
+                vx += (ax/adist) * base_speed * 1.2
+                vy += (ay/adist) * base_speed * 1.2
+
+            if is_camping:
+                can_tank = outside_zone and p["hp"] > (p["max_hp"] * 0.3) and p["hp"] >= min_enemy_hp
+                if dist_to_enemy < (card_w * 3):
                     ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
-                    vx -= (ex/edist) * base_speed * 1.0
-                    vy -= (ey/edist) * base_speed * 1.0
-
-            elif is_idle_healing:
-                ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                vx += (ax/adist) * base_speed * 1.3
-                vy += (ay/adist) * base_speed * 1.3
-
-            elif is_fleeing:
-                nearest_bush = min(game_state.bushes, key=lambda b: calc_dist(p["x"], p["y"], b["x"], b["y"])[2], default=None)
-                bdist = calc_dist(p["x"], p["y"], nearest_bush["x"], nearest_bush["y"])[2] if nearest_bush else 9999
-
-                if p["in_bush"]:
-                    pass
-                elif nearest_bush and bdist < 1000:
-                    bx, by, _ = calc_dist(p["x"], p["y"], nearest_bush["x"], nearest_bush["y"])
-                    vx += (bx/bdist) * base_speed * 1.5
-                    vy += (by/bdist) * base_speed * 1.5
-                elif nearest_enemy:
-                    ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
-                    vx -= (ex/edist) * base_speed * 1.5
-                    vy -= (ey/edist) * base_speed * 1.5
-            else:
-                if nearest_airdrop and p["hp"] < (p["max_hp"] * 0.85) and adist < 350 and drop_in_zone:
-                    ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                    vx += (ax/adist) * base_speed * 1.2
-                    vy += (ay/adist) * base_speed * 1.2
-
-                if is_camping:
-                    # TƯ DUY TÌM BO VÀ TÌM BỤI CỎ (PATHFINDING)
-                    # Mục tiêu: Nếu ở ngoài bo -> Kéo vào Tâm Bo. Nếu trong Bo -> Kéo về bụi cỏ an toàn.
-                    goal_x, goal_y = game_state.zone_x, game_state.zone_y
-                    if not outside_zone and game_state.bushes:
-                        safe_bushes =[b for b in game_state.bushes if calc_dist(b["x"], b["y"], game_state.zone_x, game_state.zone_y)[2] < game_state.zone_current_radius]
-                        if safe_bushes:
-                            best_bush = min(safe_bushes, key=lambda b: calc_dist(p["x"], p["y"], b["x"], b["y"])[2])
-                            goal_x, goal_y = best_bush["x"], best_bush["y"]
-                    
-                    gx, gy, gdist = calc_dist(p["x"], p["y"], goal_x, goal_y)
-
-                    if p["in_bush"] and not outside_zone:
-                        # Đã vào bụi an toàn trong bo thì nằm im
-                        pass
-                    else:
-                        # Lực kéo nhẹ về phía mục tiêu an toàn
-                        vx += (gx/max(gdist, 1)) * base_speed * 1.2
-                        vy += (gy/max(gdist, 1)) * base_speed * 1.2
-
-                        # Lực đẩy từ TẤT CẢ KẺ THÙ XUNG QUANH (Lách qua kẻ địch để đi vào bo)
-                        for e in enemies:
-                            ex, ey, edist = calc_dist(p["x"], p["y"], e["x"], e["y"])
-                            if edist < 500: # Thấy địch từ xa 500px là bắt đầu đi vòng né tránh
-                                repel_force = (500 - edist) / 100
-                                vx -= (ex/max(edist, 1)) * base_speed * repel_force
-                                vy -= (ey/max(edist, 1)) * base_speed * repel_force
-
+                    vx -= (ex/edist) * base_speed * 1.2
+                    vy -= (ey/edist) * base_speed * 1.2 
                 else:
-                    if target:
-                        dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
-                        if p["cooldown"] > 0:
-                            if p["weapon"] in["bow", "spear", "dagger"]:
-                                vx -= (dx/dist) * base_speed * 0.45
-                                vy -= (dy/dist) * base_speed * 0.45
-                            else:
-                                if dist > 40:
-                                    vx += (dx/dist) * base_speed * 1.1
-                                    vy += (dy/dist) * base_speed * 1.1
+                    if can_tank: pass 
+                    else:
+                        if outside_zone:
+                            zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+                            vx += (zx/zdist) * base_speed * 0.8
+                            vy += (zy/zdist) * base_speed * 0.8
                         else:
-                            if dist > w_data["max_rng"]:
-                                dir_x, dir_y = dx/dist, dy/dist
-                                if p["weapon"] == "dagger":
-                                    orth_x, orth_y = -dir_y, dir_x
-                                    zig = math.sin(game_state.ticks * 0.3) * 2.0
-                                    vx += (dir_x + orth_x * zig) * base_speed * 1.1
-                                    vy += (dir_y + orth_y * zig) * base_speed * 1.1
-                                else:
-                                    vx += dir_x * base_speed * 1.1
-                                    vy += dir_y * base_speed * 1.1
-                            elif dist < w_data["max_rng"] * 0.75 and p["weapon"] in["bow", "spear"]:
-                                vx -= (dx/dist) * base_speed * 0.45
-                                vy -= (dy/dist) * base_speed * 0.45
+                            p["wander_angle"] += random.uniform(-0.5, 0.5)
+                            vx += math.cos(p["wander_angle"]) * (base_speed * 0.4)
+                            vy += math.sin(p["wander_angle"]) * (base_speed * 0.4)
+            else:
+                if target:
+                    dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
+                    
+                    if p["cooldown"] > 0:
+                        if p["weapon"] in ["bow", "spear", "dagger"]:
+                            vx -= (dx/dist) * base_speed * 0.45
+                            vy -= (dy/dist) * base_speed * 0.45
+                        else:
+                            if dist > 40:
+                                vx += (dx/dist) * base_speed * 1.1
+                                vy += (dy/dist) * base_speed * 1.1
+                    else:
+                        if dist > w_data["max_rng"]:
+                            dir_x, dir_y = dx/dist, dy/dist
+                            if p["weapon"] == "dagger":
+                                orth_x, orth_y = -dir_y, dir_x
+                                zig = math.sin(game_state.ticks * 0.3) * 2.0
+                                vx += (dir_x + orth_x * zig) * base_speed * 1.1
+                                vy += (dir_y + orth_y * zig) * base_speed * 1.1
+                            else:
+                                vx += dir_x * base_speed * 1.1
+                                vy += dir_y * base_speed * 1.1
+                        elif dist < w_data["max_rng"] * 0.75 and p["weapon"] in["bow", "spear"]:
+                            vx -= (dx/dist) * base_speed * 0.45
+                            vy -= (dy/dist) * base_speed * 0.45
 
         preferred_target = target if not is_camping else nearest_enemy
 
-        if p["cooldown"] <= 0 and enemies:
+        # ĐÃ FIX: CHỈ TẤN CÔNG KHI KHÔNG TRONG CHẾ ĐỘ NÚP ẨN DANH AN TOÀN
+        # (Chó cùng dứt dậu: Bị dẫm trúng đầu < 40px thì núp cỡ nào cũng chém)
+        is_hidden_safe = p["in_bush"] and is_camping and not is_berserk
+        can_attack = True
+        if is_hidden_safe:
+            if nearest_enemy and dist_to_enemy < 40:
+                can_attack = True
+            else:
+                can_attack = False
+
+        if p["cooldown"] <= 0 and enemies and can_attack:
             enemies_in_range =[]
             for e in enemies:
                 ex, ey, edist = calc_dist(p["x"], p["y"], e["x"], e["y"])
@@ -580,7 +627,15 @@ def update_game_logic():
                     
                     actual_target["hp"] -= final_dmg
                     actual_target["flash_red"] = True
+                    
+                    # ĐÃ FIX: TRUYỀN SỰ TỨC GIẬN CHO KẺ BỊ ĐÁNH TRÚNG (4 giây)
+                    actual_target["angry_ticks"] = 40 
+                    actual_target["last_attacker"] = p["name"]
+                    
                     p["cooldown"] = w_data["cd_ticks"]
+
+                    p["damage_dealt"] += final_dmg
+                    actual_target["damage_taken"] += final_dmg
 
                     game_state.events.append({
                         "type": "attack", "weapon": p["weapon"],
@@ -603,6 +658,10 @@ def update_game_logic():
                     if actual_target["hp"] <= 0:
                         actual_target["hp"] = 0
                         actual_target["alive"] = False
+                        
+                        p["kills"] += 1
+                        p["killed_names"].append(actual_target["name"])
+                        
                         game_state.events.append({"type": "death"})
                         game_state.add_log(f"💀 {p['name']} đã quét dọn {actual_target['name']}!", f"💀 {p['name']} killed {actual_target['name']}!")
 

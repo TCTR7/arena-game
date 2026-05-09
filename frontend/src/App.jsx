@@ -19,55 +19,48 @@ class SoundEngine {
 
   play(type, weapon = null) {
     if (this.muted || !this.ctx) return;
-    try {
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        
-        const t = this.ctx.currentTime; 
-        
-        if (type === 'attack') {
-          if (weapon === 'sword') {
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
-            gain.gain.setValueAtTime(0.6, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1);
-          } else if (weapon === 'spear') {
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t); osc.frequency.linearRampToValueAtTime(100, t + 0.05);
-            gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05);
-          } else if (weapon === 'dagger') {
-            osc.type = 'sine'; osc.frequency.setValueAtTime(1000, t); osc.frequency.exponentialRampToValueAtTime(1500, t + 0.08);
-            gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08);
-          } else if (weapon === 'bow') {
-            osc.type = 'square'; osc.frequency.setValueAtTime(350, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-            gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
-          } else if (weapon === 'hammer') {
-            osc.type = 'square'; osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
-            gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4); osc.start(t); osc.stop(t + 0.4);
-          }
-        } 
-        else if (type === 'death') {
-          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
-          gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5);
-        }
-        else if (type === 'win') {
-          osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
-          gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
-        }
-        else if (type === 'heal') {
-          osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
-          gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
-        }
-        else if (type === 'dodge') {
-          osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.2);
-          gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.2); osc.start(t); osc.stop(t + 0.2);
-        }
-        
-        // ĐÃ FIX: Hủy kết nối node âm thanh ngay sau khi xong để tránh tràn bộ nhớ gây mất tiếng
-        osc.onended = () => {
-            gain.disconnect();
-        };
-    } catch(e) {}
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    
+    const t = this.ctx.currentTime + 0.02; 
+    
+    if (type === 'attack') {
+      if (weapon === 'sword') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+        gain.gain.setValueAtTime(0.6, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1);
+      } else if (weapon === 'spear') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t); osc.frequency.linearRampToValueAtTime(100, t + 0.05);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05);
+      } else if (weapon === 'dagger') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(1000, t); osc.frequency.exponentialRampToValueAtTime(1500, t + 0.08);
+        gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08);
+      } else if (weapon === 'bow') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(350, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
+      } else if (weapon === 'hammer') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
+        gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4); osc.start(t); osc.stop(t + 0.4);
+      }
+    } 
+    else if (type === 'death') {
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
+      gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5);
+    }
+    else if (type === 'win') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
+      gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
+    }
+    else if (type === 'heal') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
+      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
+    }
+    else if (type === 'dodge') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.2);
+      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.2); osc.start(t); osc.stop(t + 0.2);
+    }
   }
 }
 const sfx = new SoundEngine();
@@ -204,7 +197,6 @@ export default function App() {
     }
   },[]);
 
-  // ĐÃ FIX: Khơi thông Audio khi người dùng click vào đâu đó trong ứng dụng
   useEffect(() => {
     const unlockAudio = () => {
       sfx.init();
@@ -326,10 +318,10 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
 
-  // ĐÃ FIX: Chức năng Nghe thử vũ khí thông minh bằng Nút riêng biệt
-  const testWeaponSound = () => {
-    sfx.init();
-    sfx.play('attack', weapon);
+  const handleWeaponChange = (e) => {
+    const selectedWep = e.target.value;
+    setWeapon(selectedWep);
+    sfx.play('attack', selectedWep);
   };
 
   const handleRegister = async (e) => {
@@ -367,12 +359,9 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
           
           <label className="text-sm text-gray-400 mt-2 flex justify-between items-center">
             <span>Chọn Vũ Khí</span>
-            {/* ĐÃ FIX: Nút chuyên dụng để nghe thử âm thanh */}
-            <button type="button" onClick={testWeaponSound} className="text-xs bg-green-900 text-green-400 font-bold px-2 py-1 rounded hover:bg-green-800 animate-pulse border border-green-700">
-              🔊 Nghe thử Vũ Khí
-            </button>
+            <span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
           </label>
-          <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={e=>setWeapon(e.target.value)}>
+          <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={handleWeaponChange}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
 
@@ -406,8 +395,8 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
             <ul className="list-disc pl-4 mt-1 space-y-1">
               <li><b>Chí Mạng (Crit):</b> Sát thương ngẫu nhiên x1.5 hoặc x2. Dao Găm có tỉ lệ nổ Crit cực cao (30%).</li>
               <li><b>Né Đòn (Dodge):</b> Ngẫu nhiên né 100% sát thương. Cầm Khiên Nhỏ có tới 25% cơ hội Né!</li>
-              <li><b>Bụi Cỏ (Stealth):</b> Chui vào tàng hình, AI địch sẽ bị mù. <b className="text-red-400">Tuy nhiên khi hết Vòng bo (Bo = 0), mọi bụi cỏ sẽ bị thiêu rụi!</b></li>
-              <li><b>Hộp Tiếp Tế (Airdrop):</b> Nhặt hồi ngay 150 Máu. Đầu game rớt 15s/lần, cuối game (Sudden Death) rớt rất chậm 45s/lần.</li>
+              <li><b>Bụi Cỏ (Stealth):</b> Chui vào tàng hình, AI địch sẽ bị "mù", không thể target bạn.</li>
+              <li><b>Hộp Tiếp Tế (Airdrop):</b> Thỉnh thoảng rớt hộp thuốc. Chạy lại nhặt hồi ngay 150 Máu!</li>
             </ul>
           </div>
           <div>
@@ -492,7 +481,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 
 // --- PHASE 2: STRATEGY ---
 function Phase2({ gameState, hostPwd, setHostPwd }) {
-  const[name, setName] = useState('');
+  const [name, setName] = useState('');
   const[pwd, setPwd] = useState('');
   const[targetRule, setTargetRule] = useState('nearest');
   const[campRule, setCampRule] = useState('attack');
@@ -554,7 +543,7 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 
         <div className="bg-gray-800 p-8 rounded-xl border border-purple-500 shadow-2xl flex flex-col justify-center">
           <h3 className="text-xl font-bold mb-4 text-center text-purple-400">👑 Quyền Host</h3>
-          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược.</p>
+          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược, hoặc test sức mạnh Bots.</p>
           <input className="p-3 bg-gray-700 rounded mb-4 text-center text-lg outline-none" placeholder="Nhập Pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
           {hostPwd === 'dev123' && (
             <button onClick={forceStart} className="bg-red-600 hover:bg-red-500 py-4 px-6 rounded font-bold text-white uppercase tracking-wider animate-pulse shadow-[0_0_20px_rgba(220,38,38,0.6)]">
@@ -940,7 +929,7 @@ function Phase3({ gameState, hostPwd }) {
   );
 }
 
-// --- PHASE FINISHED ---
+// --- PHASE FINISHED (ĐÃ NÂNG CẤP BẢNG PHONG THẦN) ---
 function PhaseFinished({ gameState }) {
   const winner = Object.values(gameState.players).find(p => p.alive);
   const WEAPONS = gameState.config.weapons;
@@ -948,22 +937,63 @@ function PhaseFinished({ gameState }) {
   
   return (
     <div className="flex w-full items-center justify-center flex-col min-h-0 overflow-y-auto p-8">
-      <div className="bg-gray-800 p-12 rounded-2xl border-4 border-yellow-500 text-center shadow-[0_0_50px_rgba(234,179,8,0.5)]">
-        <div className="text-8xl mb-6">🏆</div>
-        <h2 className="text-5xl font-bold text-yellow-400 mb-4">{winner ? winner.name : "HÒA NHAU"}</h2>
-        <p className="text-xl text-gray-300">Đã sống sót cuối cùng trong Battle Royale!</p>
+      <div className="bg-gray-800 p-8 md:p-12 rounded-2xl border-4 border-yellow-500 text-center shadow-[0_0_50px_rgba(234,179,8,0.5)] max-w-4xl w-full">
+        
+        <div className="text-8xl mb-6 animate-bounce">🏆</div>
+        <h2 className="text-5xl font-bold text-yellow-400 mb-2 uppercase">{winner ? winner.name : "HÒA NHAU"}</h2>
+        <p className="text-xl text-gray-300 mb-8 font-semibold">Đã sống sót cuối cùng trong Battle Royale!</p>
         
         {winner && (
-          <div className="mt-8 bg-gray-900 p-6 rounded-xl text-left inline-block border border-gray-700 shadow-inner">
-            <h3 className="text-green-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">Thông số nhà vô địch:</h3>
-            <p className="text-lg mb-2">Trang bị: {WEAPONS[winner.weapon].e} {WEAPONS[winner.weapon].n} + {SHIELDS[winner.shield].e} {SHIELDS[winner.shield].n}</p>
-            <p className="text-lg mb-2">Máu còn lại: <strong className="text-green-400">{Math.floor(winner.hp)} / {winner.max_hp}</strong></p>
-            <p className="text-lg mb-2">AI Mục tiêu: <strong className="text-yellow-400">{TARGET_NAMES[winner.target_rule]}</strong></p>
-            <p className="text-lg">AI Sinh tồn: <strong className="text-yellow-400">{CAMP_NAMES[winner.camp_rule]}</strong></p>
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-700 shadow-inner flex flex-col md:flex-row gap-8 text-left">
+            
+            {/* Cột 1: Thông số trang bị & Chiến thuật */}
+            <div className="flex-1 border-b md:border-b-0 md:border-r border-gray-700 pb-6 md:pb-0 md:pr-6">
+                <h3 className="text-green-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">THÔNG SỐ SẢNH CHỜ</h3>
+                <p className="text-lg mb-2">Trang bị: {WEAPONS[winner.weapon].e} {WEAPONS[winner.weapon].n} + {SHIELDS[winner.shield].e} {SHIELDS[winner.shield].n}</p>
+                <p className="text-lg mb-2">Máu còn lại: <strong className="text-green-400">{Math.floor(winner.hp)} / {winner.max_hp}</strong></p>
+                <p className="text-lg mb-2">AI Mục tiêu: <strong className="text-yellow-400">{TARGET_NAMES[winner.target_rule]}</strong></p>
+                <p className="text-lg">AI Sinh tồn: <strong className="text-yellow-400">{CAMP_NAMES[winner.camp_rule]}</strong></p>
+            </div>
+
+            {/* Cột 2: Thống kê sinh tồn (Chỉ số ẩn) */}
+            <div className="flex-1">
+                <h3 className="text-purple-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">THỐNG KÊ CHIẾN ĐẤU (STATS)</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                        <span className="text-xs text-gray-400 block uppercase">Tổng Đam Gây Ra</span>
+                        <span className="text-xl font-bold text-red-400">💥 {Math.floor(winner.damage_dealt)}</span>
+                    </div>
+                    <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                        <span className="text-xs text-gray-400 block uppercase">Đam Gánh Chịu</span>
+                        <span className="text-xl font-bold text-gray-300">🛡️ {Math.floor(winner.damage_taken)}</span>
+                    </div>
+                    <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                        <span className="text-xs text-gray-400 block uppercase">Cướp Thùng Thính</span>
+                        <span className="text-xl font-bold text-green-400">💉 {winner.heals_looted} Lần</span>
+                    </div>
+                    <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                        <span className="text-xs text-gray-400 block uppercase">Mạng Hạ Gục (Kills)</span>
+                        <span className="text-xl font-bold text-yellow-400">🩸 {winner.kills} Mạng</span>
+                    </div>
+                </div>
+
+                <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                    <span className="text-xs text-gray-400 block uppercase mb-1">Danh sách Nạn Nhân:</span>
+                    <span className="text-sm font-semibold text-gray-200">
+                        {winner.killed_names && winner.killed_names.length > 0 
+                            ? winner.killed_names.join(', ') 
+                            : 'Trùm hòa bình (Không tự tay giết ai)'}
+                    </span>
+                </div>
+            </div>
+
           </div>
         )}
       </div>
-      <button onClick={()=>fetch(`${API_URL}/phase/waiting`,{method:'POST'})} className="mt-8 bg-gray-700 hover:bg-gray-600 px-8 py-3 rounded-full font-bold text-xl shadow-lg">Trở về sảnh</button>
+      <button onClick={()=>fetch(`${API_URL}/phase/waiting`,{method:'POST'})} className="mt-8 bg-gray-700 hover:bg-gray-600 px-10 py-4 rounded-full font-bold text-xl shadow-[0_0_15px_rgba(255,255,255,0.2)] transition-transform hover:scale-105">
+        TRỞ VỀ SẢNH LOBBY
+      </button>
     </div>
   );
 }
