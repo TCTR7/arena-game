@@ -18,21 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ĐÃ FIX: Tăng TẦM ĐÁNH của tất cả vũ khí lên khoảng 1.5 lần để vòng tròn bung ra khỏi thẻ bài to
-WEAPONS = {
-    "dagger": {"name": "Dao găm", "min_rng": 50, "max_rng": 160, "dmg": 14, "cd_ticks": 4, "weight": 0, "counters": "wood_shield"},
-    "sword": {"name": "Kiếm dài", "min_rng": 0, "max_rng": 110, "dmg": 25, "cd_ticks": 10, "weight": 15, "counters":["wood_shield", "buckler"]},
-    "spear": {"name": "Trường giáo", "min_rng": 50, "max_rng": 140, "dmg": 22, "cd_ticks": 12, "weight": 20, "counters":["steel_shield", "buckler"]},
-    "bow": {"name": "Cung tiễn", "min_rng": 100, "max_rng": 300, "dmg": 18, "cd_ticks": 8, "weight": 10, "counters":["buckler", "wood_shield"]},
-    "hammer": {"name": "Búa tạ", "min_rng": 0, "max_rng": 100, "dmg": 65, "cd_ticks": 22, "weight": 40, "counters": "steel_shield"}
-}
-
-SHIELDS = {
-    "buckler": {"name": "Khiên nhỏ", "weight": 2, "block": 0.05},
-    "wood_shield": {"name": "Khiên gỗ", "weight": 20, "block": 0.35},
-    "steel_shield": {"name": "Khiên thép", "weight": 60, "block": 0.65}
-}
-
 DATA_DIR = "/app/data"
 os.makedirs(DATA_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "game_config.json")
@@ -41,7 +26,32 @@ DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
 class GameState:
     def __init__(self):
         self.phase = "waiting"
-        self.config = {"room_name": "Giải Đấu Cờ Nhân Phẩm", "map_width": 2000, "map_height": 2000, "bg_color": "#052e16", "language": "vi"}
+        # BỘ CẤU HÌNH MẶC ĐỊNH SẼ ĐƯỢC LƯU RA FILE JSON
+        self.config = {
+            "room_name": "Giải Đấu Cờ Nhân Phẩm", 
+            "map_width": 2000, 
+            "map_height": 2000, 
+            "bg_color": "#052e16", 
+            "language": "vi",
+            "character_settings": {
+                "base_hp": 500,
+                "card_width": 100,
+                "card_height": 110
+            },
+            "weapons": {
+                "dagger": {"n": "Dao găm", "e": "🗡️", "min_rng": 50, "max_rng": 160, "r": "50-160", "dmg": 14, "cd_ticks": 4, "cd": "0.4s", "weight": 0, "counters": "wood_shield"},
+                "sword": {"n": "Kiếm dài", "e": "⚔️", "min_rng": 0, "max_rng": 110, "r": "0-110", "dmg": 25, "cd_ticks": 10, "cd": "1.0s", "weight": 15, "counters":["wood_shield", "buckler"]},
+                "spear": {"n": "Trường giáo", "e": "🔱", "min_rng": 50, "max_rng": 140, "r": "50-140", "dmg": 22, "cd_ticks": 12, "cd": "1.2s", "weight": 20, "counters":["steel_shield", "buckler"]},
+                "bow": {"n": "Cung tiễn", "e": "🏹", "min_rng": 100, "max_rng": 300, "r": "100-300", "dmg": 18, "cd_ticks": 8, "cd": "0.8s", "weight": 10, "counters":["buckler", "wood_shield"]},
+                "hammer": {"n": "Búa tạ", "e": "🔨", "min_rng": 0, "max_rng": 100, "r": "0-100", "dmg": 65, "cd_ticks": 22, "cd": "2.2s", "weight": 40, "counters": "steel_shield"}
+            },
+            "shields": {
+                "buckler": {"n": "Khiên nhỏ", "e": "🥏", "weight": 2, "block": 0.05, "b": "5%"},
+                "wood_shield": {"n": "Khiên gỗ", "e": "🪵", "weight": 20, "block": 0.35, "b": "35%"},
+                "steel_shield": {"n": "Khiên thép", "e": "🛡️", "weight": 60, "block": 0.65, "b": "65%"}
+            }
+        }
+        
         self.players = {}
         self.logs =[]
         self.events =[]
@@ -58,11 +68,15 @@ class GameState:
         self.load_data()
 
     def load_config(self):
+        # Nếu đã có file game_config.json thì nạp vào, đè lên mặc định
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     self.config.update(json.load(f))
             except: pass
+        else:
+            # Nếu chưa có thì tự sinh ra file
+            self.save_config()
 
     def save_config(self):
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -120,12 +134,15 @@ def register_player(req: RegisterReq):
     if req.name in game_state.players and game_state.players[req.name]["pwd"] != req.pwd:
         return {"error": "Sai mật khẩu"}
     
+    # LẤY MÁU TỪ CONFIG JSON
+    base_hp = game_state.config["character_settings"]["base_hp"]
+    
     game_state.players[req.name] = {
         "name": req.name, "pwd": req.pwd,
         "weapon": req.weapon, "shield": req.shield,
         "target_rule": random.choice(["nearest", "lowest_hp", "tankiest", "counter"]),
         "camp_rule": random.choice(["attack", "top5", "top3", "top2"]),
-        "hp": 500, "max_hp": 500, "alive": True,
+        "hp": base_hp, "max_hp": base_hp, "alive": True,
         "x": random.randint(100, game_state.config["map_width"] - 100),
         "y": random.randint(100, game_state.config["map_height"] - 100),
         "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2)
@@ -145,15 +162,17 @@ def set_strategy(req: StrategyReq):
 @app.post("/api/bots")
 def add_bots():
     names =["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin"]
+    base_hp = game_state.config["character_settings"]["base_hp"]
+    
     for name in names:
         bot_name = f"Bot_{name}_{random.randint(1000,9999)}"
         game_state.players[bot_name] = {
             "name": bot_name, "pwd": "bot",
-            "weapon": random.choice(list(WEAPONS.keys())),
-            "shield": random.choice(list(SHIELDS.keys())),
+            "weapon": random.choice(list(game_state.config["weapons"].keys())),
+            "shield": random.choice(list(game_state.config["shields"].keys())),
             "target_rule": random.choice(["nearest", "lowest_hp", "tankiest", "counter"]),
             "camp_rule": random.choice(["attack", "top5", "top3", "top2"]),
-            "hp": 500, "max_hp": 500, "alive": True,
+            "hp": base_hp, "max_hp": base_hp, "alive": True,
             "x": random.randint(100, game_state.config["map_width"] - 100),
             "y": random.randint(100, game_state.config["map_height"] - 100),
             "cooldown": 0, "wander_angle": random.uniform(0, math.pi*2)
@@ -182,13 +201,18 @@ def set_phase(phase: str):
         game_state.zone_y = h / 2
         game_state.zone_target_radius = math.hypot(w, h) / 2
         game_state.zone_current_radius = game_state.zone_target_radius
+        
+        base_hp = game_state.config["character_settings"]["base_hp"]
         for p in game_state.players.values():
-            p["hp"] = p["max_hp"]
+            p["max_hp"] = base_hp # Update if config changed
+            p["hp"] = base_hp
             p["alive"] = True
             p["x"] = random.randint(100, w - 100)
             p["y"] = random.randint(100, h - 100)
             p["cooldown"] = 0
     elif phase == "waiting":
+        # Khi trở về sảnh -> Nạp lại config từ file JSON để cập nhật chỉnh sửa nóng
+        game_state.load_config()
         game_state.save_data()
     return {"status": "ok"}
 
@@ -218,7 +242,7 @@ async def broadcast():
     if not active_connections: return
     data = {
         "phase": game_state.phase,
-        "config": game_state.config,
+        "config": game_state.config, # GỬI TOÀN BỘ CONFIG XUỐNG FRONTEND
         "players": game_state.players,
         "logs": game_state.logs,
         "events": game_state.events,
@@ -247,8 +271,8 @@ def calc_dist(x1, y1, x2, y2):
     if dist < 0.001: return 1.0, 1.0, 1.414
     return dx, dy, dist
 
-def is_counter(weap, shield):
-    counters = WEAPONS[weap]["counters"]
+def is_counter(weap, shield, weapons_dict):
+    counters = weapons_dict[weap]["counters"]
     if isinstance(counters, list): return shield in counters
     return shield == counters
 
@@ -265,6 +289,12 @@ def update_game_logic():
 
     w_map = game_state.config["map_width"]
     h_map = game_state.config["map_height"]
+    weapons_dict = game_state.config["weapons"]
+    shields_dict = game_state.config["shields"]
+    card_w = game_state.config["character_settings"]["card_width"]
+    
+    # Khoảng cách lùi và đẩy lực Boids tự động co giãn theo kích thước Thẻ bài
+    boid_radius = card_w * 0.45 
 
     if game_state.ticks % 100 == 0:
         game_state.zone_target_radius = max(50, game_state.zone_target_radius - 75)
@@ -297,8 +327,8 @@ def update_game_logic():
         for j in range(i+1, len(alive_players)):
             p1, p2 = alive_players[i], alive_players[j]
             dx, dy, dist = calc_dist(p1["x"], p1["y"], p2["x"], p2["y"])
-            if dist < 45: # Tăng khoảng cách đẩy lùi ra xíu vì nhân vật giờ to hơn
-                force = (45 - dist) / 5
+            if dist < boid_radius:
+                force = (boid_radius - dist) / 5
                 repulsion[p1["name"]][0] -= (dx/dist) * force
                 repulsion[p1["name"]][1] -= (dy/dist) * force
                 repulsion[p2["name"]][0] += (dx/dist) * force
@@ -307,8 +337,8 @@ def update_game_logic():
     for p in alive_players:
         if p["cooldown"] > 0: p["cooldown"] -= 1
 
-        w_data = WEAPONS[p["weapon"]]
-        s_data = SHIELDS[p["shield"]]
+        w_data = weapons_dict[p["weapon"]]
+        s_data = shields_dict[p["shield"]]
         base_speed = max(30, 180 - w_data["weight"] - s_data["weight"]) * 0.05
 
         _, _, dist_to_zone = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
@@ -324,7 +354,7 @@ def update_game_logic():
             game_state.events.append({"type": "death"})
             continue
 
-        is_berserk = p["hp"] < 150
+        is_berserk = p["hp"] < (p["max_hp"] * 0.3) # Điên cuồng khi máu < 30%
         is_camping = False
         if not is_berserk:
             c = p["camp_rule"]
@@ -342,13 +372,13 @@ def update_game_logic():
             if p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "tankiest": target = max(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "counter":
-                counters =[e for e in enemies if is_counter(p["weapon"], e["shield"])]
+                counters =[e for e in enemies if is_counter(p["weapon"], e["shield"], weapons_dict)]
                 target = min(counters, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if counters else min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
             else:
                 target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
 
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
-        panic_zone = outside_zone and (not is_camping or p["hp"] < 250)
+        panic_zone = outside_zone and (not is_camping or p["hp"] < (p["max_hp"] * 0.5))
 
         if panic_zone:
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
@@ -357,9 +387,10 @@ def update_game_logic():
         else:
             if is_camping:
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
-                can_tank = outside_zone and p["hp"] > 150 and p["hp"] >= min_enemy_hp
+                can_tank = outside_zone and p["hp"] > (p["max_hp"] * 0.3) and p["hp"] >= min_enemy_hp
                 
-                if dist_to_enemy < 450:
+                # Sợ địch nếu tiến vào quá gần vùng nhìn thấy (x2 tầm đánh lớn nhất)
+                if dist_to_enemy < (card_w * 3):
                     ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                     vx -= (ex/edist) * base_speed * 1.2
                     vy -= (ey/edist) * base_speed * 1.2 
@@ -422,11 +453,11 @@ def update_game_logic():
                 
                 actual_target, adist, ax, ay = actual_target_info
 
-                t_shield_data = SHIELDS[actual_target["shield"]]
+                t_shield_data = shields_dict[actual_target["shield"]]
                 base_dmg = w_data["dmg"]
                 if p["weapon"] == "bow" and actual_target["shield"] == "steel_shield": base_dmg /= 2.0
                 
-                multiplier = 2.0 if is_counter(p["weapon"], actual_target["shield"]) else 1.0
+                multiplier = 2.0 if is_counter(p["weapon"], actual_target["shield"], weapons_dict) else 1.0
                 final_dmg = (base_dmg * multiplier) * (1.0 - t_shield_data["block"])
                 actual_target["hp"] -= final_dmg
                 p["cooldown"] = w_data["cd_ticks"]

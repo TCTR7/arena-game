@@ -55,11 +55,9 @@ class SoundEngine {
 }
 const sfx = new SoundEngine();
 
-// ĐÃ FIX: HỆ THỐNG ÉP GIỌNG TIẾNG VIỆT
 const getVietnameseVoice = () => {
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
-  // Tìm giọng chứa mã lang vi-VN hoặc chứa chữ Vietnamese
   return voices.find(v => v.lang === 'vi-VN' || v.lang === 'vi_VN' || v.name.toLowerCase().includes('vietnamese'));
 };
 
@@ -81,7 +79,6 @@ class VoiceEngine {
     const text = type === 'attack' ? attackShouts[Math.floor(Math.random()*attackShouts.length)] : hurtScreams[Math.floor(Math.random()*hurtScreams.length)];
     const u = new SpeechSynthesisUtterance(text);
     
-    // Gán trực tiếp Voice Tiếng Việt để tránh đọc sai ngữ điệu
     const viVoice = getVietnameseVoice();
     if (viVoice) u.voice = viVoice;
     u.lang = 'vi-VN';
@@ -109,20 +106,6 @@ const speakLog = (text, langStr, muted) => {
   window.speechSynthesis.speak(msg);
 };
 
-// ĐÃ FIX: Đồng bộ max_rng khớp với Backend
-const WEAPONS = {
-  dagger: { n: "Dao găm", e: "🗡️", r: "50-160", max_rng: 160, d: 14, cd: "0.4s", w: 0 },
-  sword: { n: "Kiếm dài", e: "⚔️", r: "0-110", max_rng: 110, d: 25, cd: "1.0s", w: 15 },
-  spear: { n: "Trường giáo", e: "🔱", r: "50-140", max_rng: 140, d: 22, cd: "1.2s", w: 20 },
-  bow: { n: "Cung tiễn", e: "🏹", r: "100-300", max_rng: 300, d: 18, cd: "0.8s", w: 10 },
-  hammer: { n: "Búa tạ", e: "🔨", r: "0-100", max_rng: 100, d: 65, cd: "2.2s", w: 40 }
-};
-const SHIELDS = {
-  buckler: { n: "Khiên nhỏ", e: "🥏", w: 2, b: "5%" },
-  wood_shield: { n: "Khiên gỗ", e: "🪵", w: 20, b: "35%" },
-  steel_shield: { n: "Khiên thép", e: "🛡️", w: 60, b: "65%" }
-};
-
 export default function App() {
   const[gameState, setGameState] = useState(null);
   const [started, setStarted] = useState(false);
@@ -131,7 +114,6 @@ export default function App() {
   const[globalHostPwd, setGlobalHostPwd] = useState('');
   const spokenLogs = useRef(new Set());
 
-  // Kích hoạt load Voice (Chrome đôi lúc cần load mồi)
   useEffect(() => {
     if(window.speechSynthesis) window.speechSynthesis.getVoices();
   },[]);
@@ -217,6 +199,10 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[shield, setShield] = useState('wood_shield');
 
   const[localConfig, setLocalConfig] = useState(gameState.config);
+  
+  // Đọc Data từ config của Backend
+  const WEAPONS = gameState.config.weapons;
+  const SHIELDS = gameState.config.shields;
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -280,13 +266,13 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
           <div>
             <h3 className="font-bold text-red-400 border-b border-gray-600 pb-1">Vũ Khí</h3>
             <ul className="mt-2 space-y-1">
-              {Object.values(WEAPONS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đam {v.d} | Hồi {v.cd} | Tầm {v.r} | Nặng {v.w}</li>)}
+              {Object.values(WEAPONS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đam {v.dmg} | Hồi {v.cd} | Tầm {v.r} | Nặng {v.weight}</li>)}
             </ul>
           </div>
           <div>
             <h3 className="font-bold text-blue-400 border-b border-gray-600 pb-1">Khiên (Armor)</h3>
             <ul className="mt-2 space-y-1">
-              {Object.values(SHIELDS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đỡ {v.b} đam | Nặng {v.w}</li>)}
+              {Object.values(SHIELDS).map(v => <li key={v.n}>{v.e} <b>{v.n}</b>: Đỡ {v.b} đam | Nặng {v.weight}</li>)}
             </ul>
           </div>
           <div className="bg-gray-700 p-3 rounded">
@@ -315,6 +301,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
               </select>
             </div>
             <button onClick={saveConfig} className="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold">💾 LƯU CẤU HÌNH</button>
+            <p className="text-xs text-center text-gray-400">* Để thay đổi Máu (HP), Tầm Đánh, Đam... hãy edit file `backend_data/game_config.json` rồi về sảnh.</p>
             <hr className="border-gray-600 my-2" />
             
             <div className="flex gap-2">
@@ -411,6 +398,12 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
   const vfxRef = useRef([]); 
+  
+  // Đọc Data từ config của Backend
+  const WEAPONS = gameState.config.weapons;
+  const SHIELDS = gameState.config.shields;
+  const cardW = gameState.config.character_settings.card_width;
+  const cardH = gameState.config.character_settings.card_height;
 
   const handleForceEnd = async () => {
     let pwd = hostPwd;
@@ -517,7 +510,6 @@ function Phase3({ gameState, hostPwd }) {
       }
     });
 
-    // ĐÃ FIX KÍCH THƯỚC: Thẻ Bài bự gấp rưỡi (100x110)
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) {
         ctx.fillStyle = '#4B5563'; 
@@ -527,9 +519,7 @@ function Phase3({ gameState, hostPwd }) {
         return;
       }
 
-      const isBerserk = p.hp < 150;
-      const cardW = 100;
-      const cardH = 110;
+      const isBerserk = p.hp < (p.max_hp * 0.3); // Config máu
       const cx = p.x - cardW / 2;
       const cy = p.y - cardH / 2;
 
@@ -540,19 +530,19 @@ function Phase3({ gameState, hostPwd }) {
       ctx.strokeRect(cx, cy, cardW, cardH);
 
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 16px sans-serif'; // Tên to hơn
+      ctx.font = 'bold 16px sans-serif';
       ctx.textAlign = 'center';
       const shortName = p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name;
       ctx.fillText(shortName, p.x, cy + 22);
 
-      ctx.font = '32px sans-serif'; // Emoji to hơn
+      ctx.font = '32px sans-serif';
       ctx.fillText(WEAPONS[p.weapon].e, p.x - 20, cy + 60);
       ctx.fillText(SHIELDS[p.shield].e, p.x + 20, cy + 60);
 
       const hpBoxX = cx + 8;
       const hpBoxY = cy + 80;
       const hpBoxW = cardW - 16;
-      const hpBoxH = 16; // Thanh máu dày hơn
+      const hpBoxH = 16; 
 
       ctx.fillStyle = '#111827';
       ctx.fillRect(hpBoxX, hpBoxY, hpBoxW, hpBoxH);
@@ -562,7 +552,7 @@ function Phase3({ gameState, hostPwd }) {
       ctx.fillRect(hpBoxX, hpBoxY, hpBoxW * hpPct, hpBoxH);
 
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 12px sans-serif'; // Máu rõ hơn
+      ctx.font = 'bold 12px sans-serif'; 
       ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 12);
     });
 
@@ -643,6 +633,9 @@ function Phase3({ gameState, hostPwd }) {
 // --- PHASE FINISHED ---
 function PhaseFinished({ gameState }) {
   const winner = Object.values(gameState.players).find(p => p.alive);
+  const WEAPONS = gameState.config.weapons;
+  const SHIELDS = gameState.config.shields;
+  
   return (
     <div className="flex w-full items-center justify-center flex-col min-h-0 overflow-y-auto p-8">
       <div className="bg-gray-800 p-12 rounded-2xl border-4 border-yellow-500 text-center shadow-[0_0_50px_rgba(234,179,8,0.5)]">
@@ -654,7 +647,7 @@ function PhaseFinished({ gameState }) {
           <div className="mt-8 bg-gray-900 p-6 rounded-xl text-left inline-block border border-gray-700 shadow-inner">
             <h3 className="text-green-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">Thông số nhà vô địch:</h3>
             <p className="text-lg mb-2">Trang bị: {WEAPONS[winner.weapon].e} {WEAPONS[winner.weapon].n} + {SHIELDS[winner.shield].e} {SHIELDS[winner.shield].n}</p>
-            <p className="text-lg mb-2">Máu còn lại: <strong className="text-green-400">{Math.floor(winner.hp)} / 500</strong></p>
+            <p className="text-lg mb-2">Máu còn lại: <strong className="text-green-400">{Math.floor(winner.hp)} / {winner.max_hp}</strong></p>
             <p className="text-lg mb-2">AI Mục tiêu: <strong className="text-yellow-400">{winner.target_rule}</strong></p>
             <p className="text-lg">AI Sinh tồn: <strong className="text-yellow-400">{winner.camp_rule}</strong></p>
           </div>
