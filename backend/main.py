@@ -55,6 +55,7 @@ class GameState:
         self.logs =[]
         self.events =[]
         self.projectiles =[]
+        
         self.bushes =[]
         self.airdrops =[]
         
@@ -202,7 +203,7 @@ def set_phase(phase: str):
         game_state.zone_current_radius = game_state.zone_target_radius
         
         game_state.bushes =[{"x": random.randint(200, w-200), "y": random.randint(200, h-200), "r": random.randint(120, 180)} for _ in range(8)]
-        game_state.airdrops = []
+        game_state.airdrops =[]
 
         base_hp = game_state.config["character_settings"]["base_hp"]
         for p in game_state.players.values():
@@ -348,6 +349,7 @@ def update_game_logic():
 
         p["in_bush"] = any(calc_dist(p["x"], p["y"], b["x"], b["y"])[2] < b["r"] for b in game_state.bushes)
 
+        # Nhặt Airdrop
         new_airdrops =[]
         healed = False
         for drop in game_state.airdrops:
@@ -379,7 +381,7 @@ def update_game_logic():
             if c == "top3" and alive_count > 3: is_camping = True
             if c == "top2" and alive_count > 2: is_camping = True
 
-        enemies = [e for e in alive_players if e["name"] != p["name"] and (not e["in_bush"] or calc_dist(p["x"], p["y"], e["x"], e["y"])[2] < 60)]
+        enemies =[e for e in alive_players if e["name"] != p["name"] and (not e["in_bush"] or calc_dist(p["x"], p["y"], e["x"], e["y"])[2] < 60)]
         min_enemy_hp = min((e["hp"] for e in enemies), default=0)
         nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
         
@@ -393,37 +395,56 @@ def update_game_logic():
             else:
                 target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
 
-        # Tính toán di chuyển (Base Vector từ Lực đẩy Boids)
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
         panic_zone = outside_zone and (not is_camping or p["hp"] < (p["max_hp"] * 0.5))
 
+        # =========================================================
+        # TRÍ TUỆ AI: TRANH GIÀNH AIRDROP (HỘP CỨU THƯƠNG)
+        # =========================================================
+        wants_drop = False
+        nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
+
+        if nearest_airdrop and not panic_zone:
+            ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+            drop_in_zone = calc_dist(ax, ay, game_state.zone_x, game_state.zone_y)[2] <= game_state.zone_current_radius
+            
+            # Quét xem có địch canh thính không
+            enemies_near_drop = [e for e in enemies if calc_dist(e["x"], e["y"], ax, ay)[2] < 250]
+            drop_is_safe = len(enemies_near_drop) == 0
+
+            if drop_in_zone and adist < 500:
+                if is_camping:
+                    # Núp lùm: Chỉ nhặt khi sắp chết, hoặc an toàn
+                    if p["hp"] < (p["max_hp"] * 0.4):
+                        wants_drop = True  
+                    elif drop_is_safe and p["hp"] < (p["max_hp"] * 0.8):
+                        wants_drop = True  
+                else:
+                    # Hổ báo: Chỉ cần mất máu là ra tranh
+                    if p["hp"] < (p["max_hp"] * 0.75):
+                        wants_drop = True
+
         if panic_zone:
-            # 1. Chạy bo khẩn cấp
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
             vx += (zx/zdist) * base_speed * 1.8
             vy += (zy/zdist) * base_speed * 1.8
             
-            # ĐÃ FIX: Dù đang chạy bo nhưng thấy đứa nào áp sát thì phải tự động lách sang ngang né nó ra
             if p["weapon"] in ["bow", "spear", "dagger"] and nearest_enemy:
                 ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                 if edist < w_data["max_rng"] * 0.8:
                     vx -= (ex/edist) * base_speed * 1.5
                     vy -= (ey/edist) * base_speed * 1.5
+        elif wants_drop:
+            # GHI ĐÈ DI CHUYỂN: Lao ra ăn thính với tốc độ x1.5
+            ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+            vx += (ax/adist) * base_speed * 1.5
+            vy += (ay/adist) * base_speed * 1.5
         else:
-            # Tham lam nhặt thính
-            nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
-            if nearest_airdrop and p["hp"] < p["max_hp"] * 0.8:
-                ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                if adist < 300: 
-                    vx += (ax/adist) * base_speed * 1.2
-                    vy += (ay/adist) * base_speed * 1.2
-
             if is_camping:
-                # 2. Logic Núp Lùm
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
                 can_tank = outside_zone and p["hp"] > (p["max_hp"] * 0.3) and p["hp"] >= min_enemy_hp
                 
-                if dist_to_enemy < (card_w * 3): # Thấy địch lại gần là hoảng chạy hướng ngược lại
+                if dist_to_enemy < (card_w * 3):
                     ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                     vx -= (ex/edist) * base_speed * 1.2
                     vy -= (ey/edist) * base_speed * 1.2 
@@ -439,44 +460,32 @@ def update_game_logic():
                             vx += math.cos(p["wander_angle"]) * (base_speed * 0.4)
                             vy += math.sin(p["wander_angle"]) * (base_speed * 0.4)
             else:
-                # 3. Logic Hổ Báo & HIT AND RUN
                 if target:
                     dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
                     
-                    if p["weapon"] in ["bow", "spear", "dagger"]:
-                        # ĐÃ FIX: Tư duy thả diều đỉnh cao - Luôn cố giữ khoảng cách ở mức 75% max_rng
-                        optimal_dist = w_data["max_rng"] * 0.75
-                        
-                        if dist > w_data["max_rng"]: # Rượt tới nếu xa
+                    if p["cooldown"] > 0:
+                        if p["weapon"] in["bow", "spear", "dagger"]:
+                            vx -= (dx/dist) * base_speed * 0.45
+                            vy -= (dy/dist) * base_speed * 0.45
+                        else:
+                            if dist > 40:
+                                vx += (dx/dist) * base_speed * 1.1
+                                vy += (dy/dist) * base_speed * 1.1
+                    else:
+                        if dist > w_data["max_rng"]:
                             dir_x, dir_y = dx/dist, dy/dist
                             if p["weapon"] == "dagger":
                                 orth_x, orth_y = -dir_y, dir_x
                                 zig = math.sin(game_state.ticks * 0.3) * 2.0
-                                vx += (dir_x + orth_x * zig) * base_speed
-                                vy += (dir_y + orth_y * zig) * base_speed
+                                vx += (dir_x + orth_x * zig) * base_speed * 1.1
+                                vy += (dir_y + orth_y * zig) * base_speed * 1.1
                             else:
-                                vx += dir_x * base_speed
-                                vy += dir_y * base_speed
-                        elif dist < optimal_dist: # Lùi lại nếu địch vào quá gần
-                            vx -= (dx/dist) * base_speed * 1.0
-                            vy -= (dy/dist) * base_speed * 1.0
-                            
-                            # ĐÃ FIX: Trượt Bo (Zone Strafing)
-                            # Nếu Cung thủ đang lùi mà chuẩn bị rớt ra ngoài Bo đỏ -> Tự bẻ cua đi vòng quanh mép Bo
-                            _, _, d_to_z = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
-                            if d_to_z > game_state.zone_current_radius * 0.85:
-                                zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
-                                vx += (zx/zdist) * base_speed * 1.5
-                                vy += (zy/zdist) * base_speed * 1.5
-                    else:
-                        # Kiếm, Búa: Khô máu, sáp lá cà
-                        if dist > 35:
-                            vx += (dx/dist) * base_speed
-                            vy += (dy/dist) * base_speed
+                                vx += dir_x * base_speed * 1.1
+                                vy += dir_y * base_speed * 1.1
+                        elif dist < w_data["max_rng"] * 0.75 and p["weapon"] in["bow", "spear"]:
+                            vx -= (dx/dist) * base_speed * 0.45
+                            vy -= (dy/dist) * base_speed * 0.45
 
-        # ==================================
-        # GIAO TRANH XẢ CHIÊU KHI ĐỦ TẦM
-        # ==================================
         preferred_target = target if not is_camping else nearest_enemy
 
         if p["cooldown"] <= 0 and enemies:

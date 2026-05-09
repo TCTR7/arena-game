@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
-// --- SFX AUDIO ENGINE ---
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -64,7 +63,6 @@ class SoundEngine {
 }
 const sfx = new SoundEngine();
 
-// --- TÌM GIỌNG TIẾNG VIỆT ---
 const getVietnameseVoice = () => {
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
@@ -128,10 +126,9 @@ const speakLog = (text, langStr, muted) => {
 };
 
 // ============================================================================
-// THUẬT TOÁN TỰ ĐỘNG CHỌN MÀU TƯƠNG PHẢN THÔNG MINH CHO VŨ KHÍ & LƯỚI GRID
+// ĐÃ FIX: THUẬT TOÁN TỰ ĐỘNG CHỌN MÀU THEO MÔI TRƯỜNG NHÂN VẬT ĐANG ĐỨNG
 // ============================================================================
 const getDynamicColors = (weapon, hexBg) => {
-  // 1. Chuyển HEX màu nền sang RGB
   let c = hexBg.substring(1).split('');
   if(c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
   c = '0x' + c.join('');
@@ -139,20 +136,17 @@ const getDynamicColors = (weapon, hexBg) => {
   let gBg = (c >> 8) & 255;
   let bBg = c & 255;
 
-  // 2. Độ sáng nền (Công thức luma truyền thống)
   let lumaBg = (rBg * 0.299 + gBg * 0.587 + bBg * 0.114);
-  let isLightBg = lumaBg > 128; // Cờ kiểm tra nền là sáng hay tối
+  let isLightBg = lumaBg > 128; 
 
-  // 3. Màu đặc trưng gốc của vũ khí
   let rW, gW, bW;
-  if (weapon === 'sword') { rW = 239; gW = 68; bW = 68; } // Đỏ
-  else if (weapon === 'bow') { rW = 234; gW = 179; bW = 8; } // Vàng
-  else if (weapon === 'spear') { rW = 59; gW = 130; bW = 246; } // Xanh dương
-  else if (weapon === 'hammer') { rW = 249; gW = 115; bW = 22; } // Cam
-  else if (weapon === 'dagger') { rW = 168; gW = 85; bW = 247; } // Tím
+  if (weapon === 'sword') { rW = 239; gW = 68; bW = 68; } 
+  else if (weapon === 'bow') { rW = 234; gW = 179; bW = 8; } 
+  else if (weapon === 'spear') { rW = 59; gW = 130; bW = 246; } 
+  else if (weapon === 'hammer') { rW = 249; gW = 115; bW = 22; } 
+  else if (weapon === 'dagger') { rW = 168; gW = 85; bW = 247; } 
   else { rW = 255; gW = 255; bW = 255; }
 
-  // 4. Nếu màu gốc của vũ khí quá giống màu Nền -> Đảo màu 100% để chống tàng hình
   let colorDiff = Math.abs(rW - rBg) + Math.abs(gW - gBg) + Math.abs(bW - bBg);
   if (colorDiff < 150) {
     rW = 255 - rBg;
@@ -160,9 +154,7 @@ const getDynamicColors = (weapon, hexBg) => {
     bW = 255 - bBg;
   }
 
-  // 5. Tự động chuyển tông màu tùy theo nền
   if (isLightBg) {
-    // Nếu nền RẤT SÁNG (Vàng, Trắng) -> Dìm màu vũ khí cho đậm xuống, đổ bóng đen
     rW = Math.max(0, Math.floor(rW * 0.5));
     gW = Math.max(0, Math.floor(gW * 0.5));
     bW = Math.max(0, Math.floor(bW * 0.5));
@@ -170,10 +162,9 @@ const getDynamicColors = (weapon, hexBg) => {
       fill: `rgba(${rW}, ${gW}, ${bW}, 0.15)`,
       stroke: `rgba(${rW}, ${gW}, ${bW}, 0.9)`,
       slash: `${rW}, ${gW}, ${bW}`,
-      glow: 'rgba(0,0,0,0.6)' // Đổ bóng viền đen cho dễ thấy
+      glow: 'rgba(0,0,0,0.6)' 
     };
   } else {
-    // Nếu nền TỐI -> Kéo sáng màu vũ khí lên thành dạng Neon
     rW = Math.min(255, rW + 20);
     gW = Math.min(255, gW + 20);
     bW = Math.min(255, bW + 20);
@@ -181,7 +172,7 @@ const getDynamicColors = (weapon, hexBg) => {
       fill: `rgba(${rW}, ${gW}, ${bW}, 0.08)`,
       stroke: `rgba(${rW}, ${gW}, ${bW}, 0.8)`,
       slash: `${rW}, ${gW}, ${bW}`,
-      glow: `rgb(${rW}, ${gW}, ${bW})` // Bóng sáng Neon cùng màu
+      glow: `rgb(${rW}, ${gW}, ${bW})` 
     };
   }
 };
@@ -284,7 +275,7 @@ export default function App() {
 // --- PHASE 1: LOBBY & HOST ---
 function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[name, setName] = useState('');
-  const [pwd, setPwd] = useState('');
+  const[pwd, setPwd] = useState('');
   const[weapon, setWeapon] = useState('sword');
   const[shield, setShield] = useState('wood_shield');
 
@@ -327,7 +318,6 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   return (
     <div className="p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto">
       
-      {/* 1. ĐĂNG KÝ */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-blue-400">1. Đăng ký tham gia</h2>
         <form onSubmit={handleRegister} className="flex flex-col gap-3">
@@ -360,7 +350,6 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
         </div>
       </div>
 
-      {/* 2. BÁCH KHOA TOÀN THƯ */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-[650px] overflow-y-auto custom-scrollbar">
         <h2 className="text-2xl font-bold mb-4 text-yellow-400 border-b border-gray-600 pb-2">📖 Bách Khoa Cờ Nhân Phẩm</h2>
         <div className="text-sm space-y-6">
@@ -373,9 +362,9 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
           <div className="bg-gray-700 p-3 rounded shadow-inner border-l-4 border-yellow-500">
             <h3 className="font-bold text-yellow-400 text-base mb-1">🎲 Nhân Phẩm (RNG) & Môi Trường</h3>
             <ul className="list-disc pl-4 mt-1 space-y-1">
-              <li><b>Chí Mạng (Crit):</b> Sát thương gây ra ngẫu nhiên x1.5 hoặc x2 tùy loại vũ khí. Dao Găm có tỉ lệ nổ Crit cực cao (30%).</li>
+              <li><b>Chí Mạng (Crit):</b> Sát thương ngẫu nhiên x1.5 hoặc x2. Dao Găm có tỉ lệ nổ Crit cực cao (30%).</li>
               <li><b>Né Đòn (Dodge):</b> Ngẫu nhiên né 100% sát thương. Cầm Khiên Nhỏ có tới 25% cơ hội Né!</li>
-              <li><b>Bụi Cỏ (Stealth):</b> Bản đồ có các lùm cây xanh. Chui vào tàng hình, AI địch sẽ bị "mù", không thể chém bạn.</li>
+              <li><b>Bụi Cỏ (Stealth):</b> Chui vào tàng hình, AI địch sẽ bị "mù", không thể target bạn.</li>
               <li><b>Hộp Tiếp Tế (Airdrop):</b> Thỉnh thoảng rớt hộp thuốc. Chạy lại nhặt hồi ngay 150 Máu!</li>
             </ul>
           </div>
@@ -412,10 +401,9 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
         </div>
       </div>
 
-      {/* 3. HOST PANEL */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-purple-400">👑 Bảng điều khiển Host</h2>
-        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host (dev123) để mở khóa" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === 'dev123' && (
           <div className="flex flex-col gap-3 animate-fade-in">
@@ -543,14 +531,15 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 // --- PHASE 3: PLAYING (CANVAS MAP + CASTER PANEL) ---
 function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
-  
-  // Vùng nhớ cho các hạt Particle và Text bay bay
   const vfxRef = useRef([]); 
-  
+
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
   const cardW = gameState.config.character_settings.card_width;
   const cardH = gameState.config.character_settings.card_height;
+
+  // Lấy khoảng cách
+  const getDist = (x1, y1, x2, y2) => Math.hypot(x2-x1, y2-y1);
 
   const handleForceEnd = async () => {
     let pwd = hostPwd;
@@ -603,13 +592,7 @@ function Phase3({ gameState, hostPwd }) {
     const ch = gameState.config.map_height;
     const z = gameState.zone;
     
-    // TÍNH TOÁN LƯỚI GRID CHO MỌI LOẠI MÀU NỀN
-    let cBg = gameState.config.bg_color.substring(1).split('');
-    if(cBg.length === 3) cBg = [cBg[0], cBg[0], cBg[1], cBg[1], cBg[2], cBg[2]];
-    cBg = '0x' + cBg.join('');
-    let isLightGrid = ((cBg >> 16) & 255) * 0.299 + ((cBg >> 8) & 255) * 0.587 + (cBg & 255) * 0.114 > 128;
-    
-    // LAYER 1: BÊN NGOÀI BO
+    // LAYER 1: BÊN NGOÀI BO (XÁM ĐEN)
     ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
 
@@ -622,11 +605,27 @@ function Phase3({ gameState, hostPwd }) {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // LAYER 3: KẺ LƯỚI GRID THÔNG MINH (Tương phản với nền)
-    ctx.strokeStyle = isLightGrid ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)';
+    // LAYER 3: KẺ LƯỚI GRID THÔNG MINH THEO TÂM BO
+    let cBg = gameState.config.bg_color.substring(1).split('');
+    if(cBg.length === 3) cBg = [cBg[0], cBg[0], cBg[1], cBg[1], cBg[2], cBg[2]];
+    cBg = '0x' + cBg.join('');
+    let isLightGrid = ((cBg >> 16) & 255) * 0.299 + ((cBg >> 8) & 255) * 0.587 + (cBg & 255) * 0.114 > 128;
+
     ctx.lineWidth = 1;
-    for(let i=0; i<cw; i+=100) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); ctx.stroke(); }
-    for(let i=0; i<ch; i+=100) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); ctx.stroke(); }
+    for(let i=0; i<cw; i+=100) { 
+      ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); 
+      // Kiểm tra màu đường dọc này so với tâm bo
+      let dX = Math.abs(i - z.x);
+      ctx.strokeStyle = (dX < z.r && isLightGrid) ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.05)';
+      ctx.stroke(); 
+    }
+    for(let i=0; i<ch; i+=100) { 
+      ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); 
+      // Kiểm tra màu đường ngang này so với tâm bo
+      let dY = Math.abs(i - z.y);
+      ctx.strokeStyle = (dY < z.r && isLightGrid) ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.05)';
+      ctx.stroke(); 
+    }
 
     // LAYER 4: VIỀN VÒNG BO ĐỎ
     ctx.beginPath();
@@ -635,7 +634,7 @@ function Phase3({ gameState, hostPwd }) {
     ctx.lineWidth = 6;
     ctx.stroke();
 
-    // LAYER 5: BỤI CỎ (STEALTH BUSHES)
+    // LAYER 5: BỤI CỎ
     if(gameState.bushes) {
       gameState.bushes.forEach(b => {
         ctx.beginPath();
@@ -651,7 +650,7 @@ function Phase3({ gameState, hostPwd }) {
       });
     }
 
-    // LAYER 6: HỘP CỨU THƯƠNG (AIRDROPS)
+    // LAYER 6: HỘP CỨU THƯƠNG
     if(gameState.airdrops) {
       gameState.airdrops.forEach(drop => {
         ctx.fillStyle = '#854d0e'; 
@@ -672,8 +671,10 @@ function Phase3({ gameState, hostPwd }) {
       if (!p.alive || p.in_bush) return;
       const w_data = WEAPONS[p.weapon];
       
-      // Áp dụng thuật toán tính màu tương phản
-      const dynColor = getDynamicColors(p.weapon, gameState.config.bg_color);
+      // ĐÃ FIX: Detect xem nhân vật đang nằm trong hay ngoài bo để truyền đúng mã Hex vào tính toán
+      const isOutsideZone = getDist(p.x, p.y, z.x, z.y) > z.r;
+      const exactGroundHex = isOutsideZone ? '#111827' : gameState.config.bg_color;
+      const dynColor = getDynamicColors(p.weapon, exactGroundHex);
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, w_data.max_rng, 0, Math.PI*2);
@@ -762,7 +763,7 @@ function Phase3({ gameState, hostPwd }) {
       ctx.restore(); 
     });
 
-    // LAYER 10: VẼ VFX (MÁU, CHÉM, CHỮ BAY) TƯƠNG PHẢN TRÊN CÙNG
+    // LAYER 10: VẼ VFX TƯƠNG PHẢN THEO MÔI TRƯỜNG BÊN DƯỚI NÓ
     let activeVfx =[];
     vfxRef.current.forEach(v => {
       if (v.type === 'slash') {
@@ -770,7 +771,10 @@ function Phase3({ gameState, hostPwd }) {
         ctx.moveTo(v.x, v.y);
         ctx.lineTo(v.tx, v.ty);
         
-        const dynColor = getDynamicColors(v.weapon, gameState.config.bg_color);
+        // ĐÃ FIX: Phát hiện Vị trí chém để đổi màu tương phản
+        const isOutsideZone = getDist(v.x, v.y, z.x, z.y) > z.r;
+        const exactGroundHex = isOutsideZone ? '#111827' : gameState.config.bg_color;
+        const dynColor = getDynamicColors(v.weapon, exactGroundHex);
 
         ctx.strokeStyle = `rgba(${dynColor.slash}, ${v.life / 6})`;
         ctx.lineWidth = v.life * 3; 
