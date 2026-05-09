@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
-// --- QUẢN LÝ DANH SÁCH GIỌNG NÓI TOÀN CỤC ---
+// --- QUẢN LÝ GIỌNG NÓI TOÀN CỤC ---
 let availableVoices = [];
 const loadVoices = () => {
   if (window.speechSynthesis) {
@@ -17,18 +17,18 @@ if (window.speechSynthesis) {
 
 const getVietnameseVoice = () => {
   if (!availableVoices.length) loadVoices();
-  // Ưu tiên 1: Giọng Windows 11/10 tự nhiên (Microsoft An / Hoài My)
+  // Ưu tiên cao nhất: Các giọng AI tiếng Việt tự nhiên của OS (An, Hoài My)
   let v = availableVoices.find(voice => (voice.name.includes("An") || voice.name.includes("HoaiMy")) && voice.lang.includes("vi"));
   if (v) return v;
-  // Ưu tiên 2: Giọng Google mặc định
+  // Kế đến là giọng của Chrome
   v = availableVoices.find(voice => voice.name === "Google Tiếng Việt");
   if (v) return v;
-  // Ưu tiên 3: Bất kỳ giọng nào có gắn mác vi-VN hoặc Vietnamese
+  // Cuối cùng: Lấy đại giọng nào có chữ vi hoặc vietnamese
   v = availableVoices.find(voice => voice.lang.includes('vi') || voice.name.toLowerCase().includes('vietnamese'));
   return v;
 };
 
-// --- HỆ THỐNG ÂM THANH VŨ KHÍ (WEB AUDIO API CẢI TIẾN) ---
+// --- HỆ THỐNG ÂM THANH (SFX) ENGINE ---
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -56,51 +56,33 @@ class SoundEngine {
     
     if (type === 'attack') {
       if (weapon === 'sword') {
-        // Tiếng chém kiếm kim loại sắc bén
         osc.type = 'sawtooth'; 
-        osc.frequency.setValueAtTime(800, t); 
-        osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-        gain.gain.setValueAtTime(0.8, t); 
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); 
+        osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+        gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); 
         osc.start(t); osc.stop(t + 0.15);
       } else if (weapon === 'spear') {
-        // Tiếng đâm xé gió dứt khoát
         osc.type = 'triangle'; 
-        osc.frequency.setValueAtTime(400, t); 
-        osc.frequency.exponentialRampToValueAtTime(50, t + 0.12);
-        gain.gain.setValueAtTime(1.0, t); 
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12); 
+        osc.frequency.setValueAtTime(400, t); osc.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+        gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12); 
         osc.start(t); osc.stop(t + 0.12);
       } else if (weapon === 'dagger') {
-        // Tiếng phi dao vút cực nhanh
         osc.type = 'sine'; 
-        osc.frequency.setValueAtTime(1500, t); 
-        osc.frequency.exponentialRampToValueAtTime(800, t + 0.05);
-        gain.gain.setValueAtTime(0.5, t); 
-        gain.gain.linearRampToValueAtTime(0.01, t + 0.05); 
+        osc.frequency.setValueAtTime(1500, t); osc.frequency.exponentialRampToValueAtTime(800, t + 0.05);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); 
         osc.start(t); osc.stop(t + 0.05);
       } else if (weapon === 'bow') {
-        // Tiếng dây cung bật (Kết hợp 2 Oscillator)
         osc.type = 'sine'; 
-        osc.frequency.setValueAtTime(600, t); 
-        osc.frequency.exponentialRampToValueAtTime(150, t + 0.2);
-        gain.gain.setValueAtTime(0.7, t); 
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
-        // Oscillator 2 tạo tiếng "pật" của dây
+        osc.frequency.setValueAtTime(600, t); osc.frequency.exponentialRampToValueAtTime(150, t + 0.2);
+        gain.gain.setValueAtTime(0.7, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
         const oscSnap = this.ctx.createOscillator();
-        oscSnap.type = 'square';
-        oscSnap.frequency.setValueAtTime(900, t);
-        oscSnap.frequency.exponentialRampToValueAtTime(300, t + 0.05);
+        oscSnap.type = 'square'; oscSnap.frequency.setValueAtTime(900, t); oscSnap.frequency.exponentialRampToValueAtTime(300, t + 0.05);
         oscSnap.connect(gain);
         oscSnap.start(t); oscSnap.stop(t + 0.05);
         osc.start(t); osc.stop(t + 0.2);
       } else if (weapon === 'hammer') {
-        // Tiếng búa tạ nện xuống đất rền vang
         osc.type = 'square'; 
-        osc.frequency.setValueAtTime(120, t); 
-        osc.frequency.exponentialRampToValueAtTime(20, t + 0.35);
-        gain.gain.setValueAtTime(1.2, t); 
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35); 
+        osc.frequency.setValueAtTime(120, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.35);
+        gain.gain.setValueAtTime(1.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35); 
         osc.start(t); osc.stop(t + 0.35);
       }
     } 
@@ -124,53 +106,40 @@ class SoundEngine {
 }
 const sfx = new SoundEngine();
 
-// --- HỆ THỐNG GIỌNG NÓI MC BÌNH LUẬN ---
+// --- BÌNH LUẬN VIÊN E-SPORTS (CHUYÊN ĐỌC LOG BACKEND) ---
 class VoiceEngine {
   constructor() {
     this.synth = window.speechSynthesis;
     this.muted = false;
-    this.lastSpeakTime = 0;
   }
   
   shout(type) {
     if (this.muted || !this.synth) return;
-    const now = Date.now();
-    if (now - this.lastSpeakTime < 600) return;
-
     let text = "";
-    if(type === 'attack') {
-        const arr =["Ya!", "Chết đi!", "Đỡ này!", "Ha!", "Xông lên!"];
-        text = arr[Math.floor(Math.random()*arr.length)];
-    } else if(type === 'hurt') {
-        const arr =["Á!", "Ui da!", "Hự!", "Đau!", "Oái!"];
-        text = arr[Math.floor(Math.random()*arr.length)];
-    } else if (type === 'crit') {
-        text = "Chí mạng!";
-    } else if (type === 'dodge') {
-        text = "Né được rồi!";
-    } else if (type === 'reveal') {
-        text = "Hé lộ chiến thuật! Hãy xem ai là kẻ nguy hiểm nhất!";
+    if (type === 'reveal') {
+        text = "Chào mừng quý vị đến với đấu trường! Cùng xem qua bảng phong thần để biết ai là kẻ nguy hiểm nhất hôm nay!";
     }
-    
     if(!text) return;
 
     const u = new SpeechSynthesisUtterance(text);
     const viVoice = getVietnameseVoice();
     if (viVoice) u.voice = viVoice;
     u.lang = 'vi-VN';
-    u.pitch = 0.6 + Math.random() * 0.8; 
-    u.rate = type === 'reveal' ? 1.0 : 1.6; 
+    u.pitch = 0.9; 
+    u.rate = 1.1; 
     u.volume = 1.0;
-    
     this.synth.speak(u);
-    this.lastSpeakTime = now;
   }
 }
 const humanVoice = new VoiceEngine();
 
 const speakLog = (text, langStr, muted) => {
   if (muted || !window.speechSynthesis) return;
-  const msg = new SpeechSynthesisUtterance(text);
+  // Xóa các biểu tượng cảm xúc và timestamp trước khi đọc
+  const cleanText = text.replace(/🎙️|🏆|💀|🔥|⚡|☠️|⚠️|🎤|🎁|💉/g, '').replace(/\[.*?s\]/g, '').trim();
+  if(!cleanText) return;
+
+  const msg = new SpeechSynthesisUtterance(cleanText);
   
   if (langStr === 'vi') {
     const viVoice = getVietnameseVoice();
@@ -182,7 +151,7 @@ const speakLog = (text, langStr, muted) => {
     msg.lang = 'en-US';
   }
   
-  msg.rate = 1.2;
+  msg.rate = 1.25; // Nói hơi nhanh 1 chút cho giống bình luận viên
   window.speechSynthesis.speak(msg);
 };
 
@@ -269,25 +238,23 @@ export default function App() {
       
       if(data.events && started) {
         data.events.forEach(ev => {
-          if(ev.type === 'attack') {
-            sfx.play('attack', ev.weapon);
-            humanVoice.shout('attack');
-            if(ev.is_crit) humanVoice.shout('crit');
-          }
-          if(ev.type === 'hurt') humanVoice.shout('hurt');
-          if(ev.type === 'dodge') { sfx.play('dodge'); humanVoice.shout('dodge'); }
+          // Bỏ qua các hàm Shout vô nghĩa cũ, chỉ giữ SFX
+          if(ev.type === 'attack') sfx.play('attack', ev.weapon);
+          if(ev.type === 'dodge') sfx.play('dodge'); 
           if(ev.type === 'heal') sfx.play('heal');
           if(ev.type === 'death') sfx.play('death');
           if(ev.type === 'win') sfx.play('win');
         });
       }
 
+      // Đọc Log bình luận từ Backend gửi về
       if(data.logs.length > 0 && started) {
         const topLog = data.logs[0];
         if(!spokenLogs.current.has(topLog)) {
           spokenLogs.current.add(topLog);
-          if(topLog.includes("💀") || topLog.includes("🏆")) {
-            speakLog(topLog.replace(/[^\p{L}\p{N}\s]/gu, ''), data.config.language, muted);
+          // Cho phép MC đọc TẤT CẢ các sự kiện lớn (Đã được lọc và gắn icon ở Backend)
+          if(topLog.includes("💀") || topLog.includes("🏆") || topLog.includes("🎤") || topLog.includes("💥") || topLog.includes("☠️") || topLog.includes("💉")) {
+            speakLog(topLog, data.config.language, muted);
           }
         }
       }
@@ -969,7 +936,7 @@ function Phase3({ gameState, hostPwd }) {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col-reverse custom-scrollbar">
           {gameState.logs.map((log, i) => (
-            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') || log.includes('🛑') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : log.includes('🎁') || log.includes('💉') ? 'border-green-500 bg-green-900/20 text-green-200' : 'border-blue-500 bg-gray-700'}`}>
+            <div key={i} className={`p-2 rounded text-sm font-mono border-l-2 ${log.includes('💀') || log.includes('🛑') || log.includes('☠️') ? 'border-red-500 bg-red-900/20 text-red-200' : log.includes('💥') || log.includes('🎤') ? 'border-yellow-500 bg-yellow-900/20 text-yellow-200' : log.includes('🎁') || log.includes('💉') ? 'border-green-500 bg-green-900/20 text-green-200' : 'border-blue-500 bg-gray-700'}`}>
               {log}
             </div>
           ))}

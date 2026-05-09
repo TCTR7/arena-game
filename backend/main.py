@@ -23,6 +23,10 @@ os.makedirs(DATA_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "game_config.json")
 DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
 
+# Danh sách tên chiến thuật để bình luận viên chém gió
+TARGET_NAMES = {"nearest": "Đánh Gần Nhất", "lowest_hp": "Săn Nửa Cây", "tankiest": "Diệt Tanker", "counter": "Khắc Hệ"}
+CAMP_NAMES = {"attack": "Khô Máu Tới Cùng", "top5": "Núp đến Top 5", "top3": "Núp đến Top 3", "top2": "Núp đến Top 2"}
+
 class GameState:
     def __init__(self):
         self.phase = "waiting"
@@ -52,11 +56,11 @@ class GameState:
         }
         
         self.players = {}
-        self.logs =[]
-        self.events =[]
-        self.projectiles =[]
-        self.bushes =[]
-        self.airdrops =[]
+        self.logs = []
+        self.events = []
+        self.projectiles = []
+        self.bushes = []
+        self.airdrops = []
         
         self.ticks = 0
         self.phase2_timer = 180
@@ -99,7 +103,7 @@ class GameState:
         if len(self.logs) > 30: self.logs.pop()
 
 game_state = GameState()
-active_connections: List[WebSocket] =[]
+active_connections: List[WebSocket] = []
 
 class ConfigReq(BaseModel):
     room_name: str
@@ -147,12 +151,12 @@ def register_player(req: RegisterReq):
         "in_bush": False,
         "flash_red": False,
         "kills": 0,
-        "killed_names":[],
+        "killed_names": [],
         "heals_looted": 0,
         "damage_dealt": 0.0,
         "damage_taken": 0.0,
-        "angry_ticks": 0,       # THÊM: Thời gian nổi điên khi bị đánh trúng
-        "last_attacker": ""     # THÊM: Lưu tên kẻ vừa đánh mình
+        "angry_ticks": 0,       
+        "last_attacker": ""     
     }
     game_state.save_data()
     return {"status": "ok"}
@@ -168,7 +172,7 @@ def set_strategy(req: StrategyReq):
 
 @app.post("/api/bots")
 def add_bots():
-    names =["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin", "Malphite", "Jinx", "Talon", "Irelia"]
+    names = ["Yasuo", "Yone", "Garen", "Darius", "Ahri", "Zed", "Akali", "Teemo", "Vayne", "LeeSin", "Malphite", "Jinx", "Talon", "Irelia"]
     base_hp = game_state.config["character_settings"]["base_hp"]
     for name in names:
         bot_name = f"Bot_{name}_{random.randint(1000,9999)}"
@@ -185,7 +189,7 @@ def add_bots():
             "in_bush": False,
             "flash_red": False,
             "kills": 0,
-            "killed_names":[],
+            "killed_names": [],
             "heals_looted": 0,
             "damage_dealt": 0.0,
             "damage_taken": 0.0,
@@ -209,9 +213,9 @@ def set_phase(phase: str):
     elif phase == "reveal":
         game_state.reveal_timer = 25
     elif phase == "playing":
-        game_state.logs =[]
-        game_state.add_log("Trận chiến sinh tồn bắt đầu!", "Battle Royale started!")
-        game_state.projectiles =[]
+        game_state.logs = []
+        game_state.add_log("🎤 Chào mừng quý vị đến với vòng bo sinh tử! Ai sẽ là kẻ sống sót cuối cùng đây?", "🎤 Welcome to the ultimate Battle Royale!")
+        game_state.projectiles = []
         game_state.ticks = 0
         w, h = game_state.config["map_width"], game_state.config["map_height"]
         game_state.zone_x = w / 2
@@ -219,8 +223,8 @@ def set_phase(phase: str):
         game_state.zone_target_radius = math.hypot(w, h) / 2
         game_state.zone_current_radius = game_state.zone_target_radius
         
-        game_state.bushes =[{"x": random.randint(200, w-200), "y": random.randint(200, h-200), "r": random.randint(120, 180)} for _ in range(8)]
-        game_state.airdrops =[]
+        game_state.bushes = [{"x": random.randint(200, w-200), "y": random.randint(200, h-200), "r": random.randint(120, 180)} for _ in range(8)]
+        game_state.airdrops = []
 
         base_hp = game_state.config["character_settings"]["base_hp"]
         for p in game_state.players.values():
@@ -233,7 +237,7 @@ def set_phase(phase: str):
             p["in_bush"] = False
             p["flash_red"] = False
             p["kills"] = 0
-            p["killed_names"] =[]
+            p["killed_names"] = []
             p["heals_looted"] = 0
             p["damage_dealt"] = 0.0
             p["damage_taken"] = 0.0
@@ -251,15 +255,15 @@ def force_end_game(req: ForceEndReq):
         return {"error": "Sai mật khẩu Host!"}
     
     if game_state.phase == "playing":
-        alive_players =[p for p in game_state.players.values() if p["alive"]]
+        alive_players = [p for p in game_state.players.values() if p["alive"]]
         if alive_players:
             alive_players.sort(key=lambda x: x["hp"], reverse=True)
             winner = alive_players[0]
             for p in alive_players[1:]:
                 p["hp"] = 0
                 p["alive"] = False
-            game_state.add_log(f"🛑 HOST kết thúc sớm! {winner['name']} thắng nhờ có nhiều máu nhất!", 
-                               f"🛑 HOST forced end! {winner['name']} wins by highest HP!")
+            game_state.add_log(f"🛑 Trọng tài tuýt còi! {winner['name']} đã thắng bằng chỉ số phụ!", 
+                               f"🛑 Referee stopped the match! {winner['name']} wins!")
             game_state.events.append({"type": "win"})
         game_state.phase = "finished"
     return {"status": "ok"}
@@ -331,15 +335,15 @@ def update_game_logic():
 
     if game_state.ticks % 100 == 0:
         game_state.zone_target_radius = max(0, game_state.zone_target_radius - 75)
-        game_state.add_log("⚠️ Vòng bo đang thu hẹp!", "⚠️ The Red Zone is shrinking!")
+        game_state.add_log("⚠️ Chú ý chú ý! Vòng bo lại bắt đầu thu hẹp rồi!", "⚠️ The Red Zone is shrinking!")
 
     if game_state.zone_current_radius > game_state.zone_target_radius:
         game_state.zone_current_radius -= 2.0
         if game_state.zone_current_radius < 0: game_state.zone_current_radius = 0
 
     if game_state.zone_current_radius <= 0 and len(game_state.bushes) > 0:
-        game_state.bushes =[]
-        game_state.add_log("🔥 Vòng bo đã thiêu rụi toàn bộ bụi cỏ!", "🔥 The Red Zone burned all bushes!")
+        game_state.bushes = []
+        game_state.add_log("🔥 Căng quá! Vòng bo đã thiêu rụi toàn bộ bụi cỏ. Hết chỗ núp rồi các thanh niên!", "🔥 The Red Zone burned all bushes!")
 
     drop_interval = 450 if game_state.zone_current_radius <= 50 else 150
     if game_state.ticks % drop_interval == 0 and len(game_state.airdrops) < 5 and game_state.zone_current_radius > 200:
@@ -347,9 +351,9 @@ def update_game_logic():
         drop_x = game_state.zone_x + random.randint(-safe_r, safe_r)
         drop_y = game_state.zone_y + random.randint(-safe_r, safe_r)
         game_state.airdrops.append({"x": drop_x, "y": drop_y})
-        game_state.add_log("🎁 Một Hộp Cứu Thương đã rơi xuống đấu trường!", "🎁 An Airdrop has landed!")
+        game_state.add_log("🎁 Thính rụng! Không biết ai sẽ là người bú được hộp máu ngon lành này đây?", "🎁 An Airdrop has landed!")
 
-    new_projs =[]
+    new_projs = []
     for proj in game_state.projectiles:
         proj["life"] -= 1
         proj["x"] += proj["vx"]
@@ -357,18 +361,37 @@ def update_game_logic():
         if proj["life"] > 0: new_projs.append(proj)
     game_state.projectiles = new_projs
 
-    alive_players =[p for p in game_state.players.values() if p["alive"]]
+    alive_players = [p for p in game_state.players.values() if p["alive"]]
     alive_count = len(alive_players)
 
     if alive_count <= 1:
         if alive_count == 1:
             winner = alive_players[0]
-            game_state.add_log(f"🏆 {winner['name']} vô địch Battle Royale!", f"🏆 {winner['name']} won the Battle Royale!")
+            game_state.add_log(f"🏆 QUÁ ĐỈNH! {winner['name']} đã quét sạch bản đồ và lên ngôi vô địch!", f"🏆 {winner['name']} won the Battle Royale!")
             game_state.events.append({"type": "win"})
         game_state.phase = "finished"
         return
 
-    repulsion = {p["name"]:[0.0, 0.0] for p in alive_players}
+    # --- BÌNH LUẬN VIÊN AI TỰ ĐỘNG (Chiến thuật) ---
+    if game_state.ticks % 40 == 0 and random.random() < 0.4 and alive_count > 1:
+        cp = random.choice(alive_players)
+        comment = ""
+        # Dự đoán lối đánh
+        if cp["in_bush"] and cp["camp_rule"] != "attack":
+            comment = f"🎤 Nhìn kìa, {cp['name']} đang diễn vai cái cây rất đạt! Chiến thuật '{CAMP_NAMES[cp['camp_rule']]}' đang được áp dụng triệt để."
+        elif cp["camp_rule"] == "attack":
+            comment = f"🎤 Quá máu lửa! {cp['name']} mang đúng tâm lý 'Khô máu', càn quét khắp nơi không nể nang ai cả!"
+        elif cp["target_rule"] == "lowest_hp":
+            comment = f"🎤 Ánh mắt của {cp['name']} đang láo liên tìm kẻ yếu máu để KS mạng. Một lối đánh đầy mưu mô!"
+        elif cp["target_rule"] == "tankiest":
+            comment = f"🎤 Thật khó tin, {cp['name']} cứ nhè mấy tay trâu bò nhất mà đấm. Điếc không sợ súng là đây!"
+        elif cp["target_rule"] == "counter":
+            comment = f"🎤 {cp['name']} đang chứng minh IQ vô cực, liên tục di chuyển để tìm mục tiêu bị mình khắc hệ."
+        
+        if comment:
+            game_state.add_log(comment, "🎤 MC: Tactical play going on!")
+
+    repulsion = {p["name"]: [0.0, 0.0] for p in alive_players}
     for i in range(len(alive_players)):
         for j in range(i+1, len(alive_players)):
             p1, p2 = alive_players[i], alive_players[j]
@@ -383,7 +406,6 @@ def update_game_logic():
     for p in alive_players:
         p["flash_red"] = False
         
-        # 1. Quản lý trạng thái "Tức giận" (Vengeance)
         if p["angry_ticks"] > 0:
             p["angry_ticks"] -= 1
             
@@ -395,16 +417,16 @@ def update_game_logic():
 
         p["in_bush"] = any(calc_dist(p["x"], p["y"], b["x"], b["y"])[2] < b["r"] for b in game_state.bushes)
 
-        new_airdrops =[]
+        new_airdrops = []
         healed = False
         for drop in game_state.airdrops:
             if not healed and calc_dist(p["x"], p["y"], drop["x"], drop["y"])[2] < 40:
                 p["hp"] = min(p["max_hp"], p["hp"] + 150)
                 p["heals_looted"] += 1
                 game_state.events.append({"type": "heal", "x": p["x"], "y": p["y"], "text": "+150 HP"})
-                game_state.add_log(f"💉 {p['name']} đã nhặt được Hộp Cứu Thương!", f"💉 {p['name']} looted a Health Pack!")
+                game_state.add_log(f"💉 Úi chà chà! {p['name']} vừa nhặt được thính 150 máu. Kèo này lại căng rồi đây!", f"💉 {p['name']} looted a Health Pack!")
                 healed = True
-                p["angry_ticks"] = 0 # Ăn máu xong thì hết tức giận
+                p["angry_ticks"] = 0 
             else:
                 new_airdrops.append(drop)
         game_state.airdrops = new_airdrops
@@ -424,13 +446,12 @@ def update_game_logic():
         if p["hp"] <= 0:
             p["hp"] = 0
             p["alive"] = False
-            game_state.add_log(f"☠️ {p['name']} gục ngã ngoài vòng bo!", f"☠️ {p['name']} died in the red zone!")
+            game_state.add_log(f"☠️ CẠN LỜI! {p['name']} mải ngắm hoa bắt bướm ngoài bo và cái kết bay màu!", f"☠️ {p['name']} died to the zone!")
             game_state.events.append({"type": "death"})
             continue
 
-        # 2. XÁC ĐỊNH TÂM LÝ AI (AI PSYCHOLOGY)
         is_angry = p["angry_ticks"] > 0
-        is_berserk = p["hp"] < (p["max_hp"] * 0.25) or is_angry # Nổi điên khi máu < 25% HOẶC vừa bị đánh trúng
+        is_berserk = p["hp"] < (p["max_hp"] * 0.25) or is_angry 
         is_fleeing = (p["hp"] < (p["max_hp"] * 0.40)) and not is_berserk
         
         is_camping = False
@@ -444,7 +465,7 @@ def update_game_logic():
             is_camping = False
             is_fleeing = False
 
-        enemies =[e for e in alive_players if e["name"] != p["name"] and (not e["in_bush"] or calc_dist(p["x"], p["y"], e["x"], e["y"])[2] < 60)]
+        enemies = [e for e in alive_players if e["name"] != p["name"] and (not e["in_bush"] or calc_dist(p["x"], p["y"], e["x"], e["y"])[2] < 60)]
         min_enemy_hp = min((e["hp"] for e in enemies), default=0)
         nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
         
@@ -456,17 +477,15 @@ def update_game_logic():
             elif p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "tankiest": target = max(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "counter":
-                counters =[e for e in enemies if is_counter(p["weapon"], e["shield"], weapons_dict)]
+                counters = [e for e in enemies if is_counter(p["weapon"], e["shield"], weapons_dict)]
                 target = min(counters, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if counters else min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
             
-            # TRÍ TUỆ BÁO THÙ: Nếu đang nổi điên, ưu tiên đập thằng vừa đánh mình
             if is_angry and p["last_attacker"]:
                 revenge_target = next((e for e in enemies if e["name"] == p["last_attacker"]), None)
                 if revenge_target: target = revenge_target
 
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
         
-        # 3. LỰC ĐẨY CỦA TƯỜNG (Wall Repulsion) - Chống kẹt vào góc chết 90 độ
         wall_margin = 120
         if p["x"] < wall_margin: 
             vx += ((wall_margin - p["x"]) / wall_margin) * base_speed * 1.5
@@ -576,16 +595,14 @@ def update_game_logic():
                             else:
                                 vx += dir_x * base_speed * 1.1
                                 vy += dir_y * base_speed * 1.1
-                        elif dist < w_data["max_rng"] * 0.75 and p["weapon"] in["bow", "spear"]:
+                        elif dist < w_data["max_rng"] * 0.75 and p["weapon"] in ["bow", "spear"]:
                             vx -= (dx/dist) * base_speed * 0.45
                             vy -= (dy/dist) * base_speed * 0.45
 
         preferred_target = target if not is_camping else nearest_enemy
-
-        # ĐÃ FIX: CHỈ TẤN CÔNG KHI KHÔNG TRONG CHẾ ĐỘ NÚP ẨN DANH AN TOÀN
-        # (Chó cùng dứt dậu: Bị dẫm trúng đầu < 40px thì núp cỡ nào cũng chém)
         is_hidden_safe = p["in_bush"] and is_camping and not is_berserk
         can_attack = True
+        
         if is_hidden_safe:
             if nearest_enemy and dist_to_enemy < 40:
                 can_attack = True
@@ -593,7 +610,7 @@ def update_game_logic():
                 can_attack = False
 
         if p["cooldown"] <= 0 and enemies and can_attack:
-            enemies_in_range =[]
+            enemies_in_range = []
             for e in enemies:
                 ex, ey, edist = calc_dist(p["x"], p["y"], e["x"], e["y"])
                 if w_data["min_rng"] <= edist <= w_data["max_rng"]:
@@ -628,7 +645,6 @@ def update_game_logic():
                     actual_target["hp"] -= final_dmg
                     actual_target["flash_red"] = True
                     
-                    # ĐÃ FIX: TRUYỀN SỰ TỨC GIẬN CHO KẺ BỊ ĐÁNH TRÚNG (4 giây)
                     actual_target["angry_ticks"] = 40 
                     actual_target["last_attacker"] = p["name"]
                     
@@ -644,16 +660,16 @@ def update_game_logic():
                     })
                     game_state.events.append({"type": "hurt", "weapon": actual_target["weapon"], "x": actual_target["x"], "y": actual_target["y"]})
                     
-                    if p["weapon"] in["bow", "dagger", "spear"]:
+                    if p["weapon"] in ["bow", "dagger", "spear"]:
                         game_state.projectiles.append({"x": p["x"], "y": p["y"], "vx": (ax/adist)*20, "vy": (ay/adist)*20, "life": int(adist/20), "type": p["weapon"]})
 
-                    if p["weapon"] in["sword", "hammer"]:
+                    if p["weapon"] in ["sword", "hammer"]:
                         kb = 10 if p["weapon"] == "sword" else 25
                         actual_target["x"] += (ax/adist) * kb
                         actual_target["y"] += (ay/adist) * kb
 
                     if is_crit:
-                        game_state.add_log(f"💥 BẠO KÍCH! {p['name']} chém {int(final_dmg)} HP vào {actual_target['name']}!", f"💥 CRITICAL! {p['name']} hits {int(final_dmg)} dmg on {actual_target['name']}!")
+                        game_state.add_log(f"💥 BẠO KÍCH! MỘT PHA XỬ LÝ CHẤN ĐỘNG! {p['name']} gõ {int(final_dmg)} máu của {actual_target['name']}!", f"💥 CRITICAL! {p['name']} hits {int(final_dmg)} dmg on {actual_target['name']}!")
                     
                     if actual_target["hp"] <= 0:
                         actual_target["hp"] = 0
@@ -663,7 +679,7 @@ def update_game_logic():
                         p["killed_names"].append(actual_target["name"])
                         
                         game_state.events.append({"type": "death"})
-                        game_state.add_log(f"💀 {p['name']} đã quét dọn {actual_target['name']}!", f"💀 {p['name']} killed {actual_target['name']}!")
+                        game_state.add_log(f"💀 QUÁ ĐẲNG CẤP! {p['name']} vừa tiễn {actual_target['name']} đăng xuất khỏi trái đất!", f"💀 {p['name']} killed {actual_target['name']}!")
 
         p["x"] += vx
         p["y"] += vy
