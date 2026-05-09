@@ -55,8 +55,6 @@ class GameState:
         self.logs =[]
         self.events =[]
         self.projectiles =[]
-        
-        # Môi trường sinh tồn
         self.bushes =[]
         self.airdrops =[]
         
@@ -203,7 +201,6 @@ def set_phase(phase: str):
         game_state.zone_target_radius = math.hypot(w, h) / 2
         game_state.zone_current_radius = game_state.zone_target_radius
         
-        # Môi trường
         game_state.bushes =[{"x": random.randint(200, w-200), "y": random.randint(200, h-200), "r": random.randint(120, 180)} for _ in range(8)]
         game_state.airdrops = []
 
@@ -298,7 +295,6 @@ def update_game_logic():
     card_w = game_state.config["character_settings"]["card_width"]
     boid_radius = card_w * 0.45 
 
-    # Thu Bo
     if game_state.ticks % 100 == 0:
         game_state.zone_target_radius = max(50, game_state.zone_target_radius - 75)
         game_state.add_log("⚠️ Vòng bo đang thu hẹp!", "⚠️ The Red Zone is shrinking!")
@@ -306,15 +302,12 @@ def update_game_logic():
     if game_state.zone_current_radius > game_state.zone_target_radius:
         game_state.zone_current_radius -= 2.0
 
-    # Thả Thính (Airdrop) mỗi 15s
     if game_state.ticks % 150 == 0 and len(game_state.airdrops) < 5:
-        # Thả ngẫu nhiên gần tâm bo
         drop_x = game_state.zone_x + random.randint(-int(game_state.zone_current_radius/2), int(game_state.zone_current_radius/2))
         drop_y = game_state.zone_y + random.randint(-int(game_state.zone_current_radius/2), int(game_state.zone_current_radius/2))
         game_state.airdrops.append({"x": drop_x, "y": drop_y})
         game_state.add_log("🎁 Một Hộp Cứu Thương đã rơi xuống đấu trường!", "🎁 An Airdrop has landed!")
 
-    # Cập nhật đạn
     new_projs =[]
     for proj in game_state.projectiles:
         proj["life"] -= 1
@@ -334,7 +327,6 @@ def update_game_logic():
         game_state.phase = "finished"
         return
 
-    # Lực đẩy Boids
     repulsion = {p["name"]:[0.0, 0.0] for p in alive_players}
     for i in range(len(alive_players)):
         for j in range(i+1, len(alive_players)):
@@ -354,10 +346,8 @@ def update_game_logic():
         s_data = shields_dict[p["shield"]]
         base_speed = max(30, 180 - w_data["weight"] - s_data["weight"]) * 0.05
 
-        # Cập nhật tàng hình (Bụi cỏ)
         p["in_bush"] = any(calc_dist(p["x"], p["y"], b["x"], b["y"])[2] < b["r"] for b in game_state.bushes)
 
-        # Nhặt Airdrop
         new_airdrops =[]
         healed = False
         for drop in game_state.airdrops:
@@ -365,12 +355,11 @@ def update_game_logic():
                 p["hp"] = min(p["max_hp"], p["hp"] + 150)
                 game_state.events.append({"type": "heal", "x": p["x"], "y": p["y"], "text": "+150 HP"})
                 game_state.add_log(f"💉 {p['name']} đã nhặt được Hộp Cứu Thương!", f"💉 {p['name']} looted a Health Pack!")
-                healed = True # Chỉ ăn 1 hộp
+                healed = True
             else:
                 new_airdrops.append(drop)
         game_state.airdrops = new_airdrops
 
-        # Mất máu ngoài bo
         _, _, dist_to_zone = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
         outside_zone = dist_to_zone > game_state.zone_current_radius
         if outside_zone: p["hp"] -= 0.8 
@@ -390,7 +379,6 @@ def update_game_logic():
             if c == "top3" and alive_count > 3: is_camping = True
             if c == "top2" and alive_count > 2: is_camping = True
 
-        # Xác định đối thủ (BỎ QUA KẺ TÀNG HÌNH TRONG BỤI CỎ, TRỪ KHI QUÁ GẦN < 60px)
         enemies = [e for e in alive_players if e["name"] != p["name"] and (not e["in_bush"] or calc_dist(p["x"], p["y"], e["x"], e["y"])[2] < 60)]
         min_enemy_hp = min((e["hp"] for e in enemies), default=0)
         nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
@@ -405,27 +393,37 @@ def update_game_logic():
             else:
                 target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
 
+        # Tính toán di chuyển (Base Vector từ Lực đẩy Boids)
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
         panic_zone = outside_zone and (not is_camping or p["hp"] < (p["max_hp"] * 0.5))
 
         if panic_zone:
+            # 1. Chạy bo khẩn cấp
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
             vx += (zx/zdist) * base_speed * 1.8
             vy += (zy/zdist) * base_speed * 1.8
+            
+            # ĐÃ FIX: Dù đang chạy bo nhưng thấy đứa nào áp sát thì phải tự động lách sang ngang né nó ra
+            if p["weapon"] in ["bow", "spear", "dagger"] and nearest_enemy:
+                ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
+                if edist < w_data["max_rng"] * 0.8:
+                    vx -= (ex/edist) * base_speed * 1.5
+                    vy -= (ey/edist) * base_speed * 1.5
         else:
-            # AI Tham Lam nhặt Airdrop nếu thiếu máu
+            # Tham lam nhặt thính
             nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
             if nearest_airdrop and p["hp"] < p["max_hp"] * 0.8:
                 ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                if adist < 300: # Thấy trong tầm mắt là rẽ qua nhặt
+                if adist < 300: 
                     vx += (ax/adist) * base_speed * 1.2
                     vy += (ay/adist) * base_speed * 1.2
 
             if is_camping:
+                # 2. Logic Núp Lùm
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
                 can_tank = outside_zone and p["hp"] > (p["max_hp"] * 0.3) and p["hp"] >= min_enemy_hp
                 
-                if dist_to_enemy < (card_w * 3):
+                if dist_to_enemy < (card_w * 3): # Thấy địch lại gần là hoảng chạy hướng ngược lại
                     ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                     vx -= (ex/edist) * base_speed * 1.2
                     vy -= (ey/edist) * base_speed * 1.2 
@@ -441,19 +439,15 @@ def update_game_logic():
                             vx += math.cos(p["wander_angle"]) * (base_speed * 0.4)
                             vy += math.sin(p["wander_angle"]) * (base_speed * 0.4)
             else:
+                # 3. Logic Hổ Báo & HIT AND RUN
                 if target:
                     dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
                     
-                    if p["cooldown"] > 0:
-                        if p["weapon"] in["bow", "spear", "dagger"]:
-                            vx -= (dx/dist) * base_speed * 0.8
-                            vy -= (dy/dist) * base_speed * 0.8
-                        else:
-                            if dist > 40:
-                                vx += (dx/dist) * base_speed * 0.6
-                                vy += (dy/dist) * base_speed * 0.6
-                    else:
-                        if dist > w_data["max_rng"]:
+                    if p["weapon"] in ["bow", "spear", "dagger"]:
+                        # ĐÃ FIX: Tư duy thả diều đỉnh cao - Luôn cố giữ khoảng cách ở mức 75% max_rng
+                        optimal_dist = w_data["max_rng"] * 0.75
+                        
+                        if dist > w_data["max_rng"]: # Rượt tới nếu xa
                             dir_x, dir_y = dx/dist, dy/dist
                             if p["weapon"] == "dagger":
                                 orth_x, orth_y = -dir_y, dir_x
@@ -463,10 +457,26 @@ def update_game_logic():
                             else:
                                 vx += dir_x * base_speed
                                 vy += dir_y * base_speed
-                        elif dist < w_data["max_rng"] * 0.6 and p["weapon"] in["bow", "spear"]:
-                            vx -= (dx/dist) * base_speed * 0.8
-                            vy -= (dy/dist) * base_speed * 0.8
+                        elif dist < optimal_dist: # Lùi lại nếu địch vào quá gần
+                            vx -= (dx/dist) * base_speed * 1.0
+                            vy -= (dy/dist) * base_speed * 1.0
+                            
+                            # ĐÃ FIX: Trượt Bo (Zone Strafing)
+                            # Nếu Cung thủ đang lùi mà chuẩn bị rớt ra ngoài Bo đỏ -> Tự bẻ cua đi vòng quanh mép Bo
+                            _, _, d_to_z = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+                            if d_to_z > game_state.zone_current_radius * 0.85:
+                                zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
+                                vx += (zx/zdist) * base_speed * 1.5
+                                vy += (zy/zdist) * base_speed * 1.5
+                    else:
+                        # Kiếm, Búa: Khô máu, sáp lá cà
+                        if dist > 35:
+                            vx += (dx/dist) * base_speed
+                            vy += (dy/dist) * base_speed
 
+        # ==================================
+        # GIAO TRANH XẢ CHIÊU KHI ĐỦ TẦM
+        # ==================================
         preferred_target = target if not is_camping else nearest_enemy
 
         if p["cooldown"] <= 0 and enemies:
@@ -484,16 +494,13 @@ def update_game_logic():
 
                 t_shield_data = shields_dict[actual_target["shield"]]
                 
-                # RNG NHÂN PHẨM: Né (Dodge) & Chí Mạng (Crit)
                 dodge_chance = float(t_shield_data.get("dodge", 0))
                 crit_chance = float(w_data.get("crit", 0))
                 
                 if random.random() < dodge_chance:
-                    # Kẻ thù NÉ ĐƯỢC
                     game_state.events.append({"type": "dodge", "x": actual_target["x"], "y": actual_target["y"]})
                     p["cooldown"] = w_data["cd_ticks"]
                 else:
-                    # TRÚNG ĐÒN
                     base_dmg = float(w_data["dmg"])
                     if p["weapon"] == "bow" and actual_target["shield"] == "steel_shield": base_dmg /= 2.0
                     
@@ -508,7 +515,6 @@ def update_game_logic():
                     actual_target["hp"] -= final_dmg
                     p["cooldown"] = w_data["cd_ticks"]
 
-                    # Thêm Event Vẽ chữ sát thương
                     game_state.events.append({
                         "type": "attack", "weapon": p["weapon"],
                         "x": p["x"], "y": p["y"], "tx": actual_target["x"], "ty": actual_target["y"],
