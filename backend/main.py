@@ -55,13 +55,12 @@ class GameState:
         self.logs =[]
         self.events =[]
         self.projectiles =[]
-        
         self.bushes =[]
         self.airdrops =[]
         
         self.ticks = 0
         self.phase2_timer = 180
-        self.reveal_timer = 25 # Thời gian hiển thị Panel Công Bố Chiến Thuật (25 giây)
+        self.reveal_timer = 25 
         
         self.zone_target_radius = 2000
         self.zone_current_radius = 2000
@@ -193,7 +192,6 @@ def set_phase(phase: str):
     if phase == "strategy":
         game_state.phase2_timer = 180
     elif phase == "reveal":
-        # Màn hình công bố chiến thuật
         game_state.reveal_timer = 25
     elif phase == "playing":
         game_state.logs =[]
@@ -252,7 +250,7 @@ async def broadcast():
         "events": game_state.events,
         "projectiles": game_state.projectiles,
         "timer": game_state.phase2_timer,
-        "reveal_timer": game_state.reveal_timer, # Truyền timer mới xuống Client
+        "reveal_timer": game_state.reveal_timer,
         "zone": {"x": game_state.zone_x, "y": game_state.zone_y, "r": game_state.zone_current_radius},
         "bushes": game_state.bushes,
         "airdrops": game_state.airdrops
@@ -286,17 +284,16 @@ def is_counter(weap, shield, weapons_dict):
 def update_game_logic():
     game_state.ticks += 1
     
-    # Xử lý tự động nhảy Phase
     if game_state.phase == "strategy" and game_state.ticks % 10 == 0:
         game_state.phase2_timer -= 1
         if game_state.phase2_timer <= 0:
-            set_phase("reveal") # Hết giờ Setup thì nhảy sang công bố chiến thuật
+            set_phase("reveal")
         return
 
     if game_state.phase == "reveal" and game_state.ticks % 10 == 0:
         game_state.reveal_timer -= 1
         if game_state.reveal_timer <= 0:
-            set_phase("playing") # Hết giờ công bố thì vào Game
+            set_phase("playing") 
         return
 
     if game_state.phase != "playing": return
@@ -361,6 +358,7 @@ def update_game_logic():
 
         p["in_bush"] = any(calc_dist(p["x"], p["y"], b["x"], b["y"])[2] < b["r"] for b in game_state.bushes)
 
+        # Xử lý nhặt Airdrop khi đứng gần
         new_airdrops =[]
         healed = False
         for drop in game_state.airdrops:
@@ -407,25 +405,50 @@ def update_game_logic():
                 target = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2])
 
         vx, vy = repulsion[p["name"]][0], repulsion[p["name"]][1]
+        
+        # ĐỊNH NGHĨA TRẠNG THÁI: TÌNH TRẠNG CHẠY BO KHẨN CẤP
         panic_zone = outside_zone and (not is_camping or p["hp"] < (p["max_hp"] * 0.5))
 
+        # =========================================================================
+        # ĐÃ FIX: TRÍ TUỆ AI BẢN NĂNG SINH TỒN - TUYỆT VỌNG ĐI TÌM MÁU
+        # =========================================================================
+        nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
+        adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])[2] if nearest_airdrop else 9999
+        
+        # Máu dưới 40% và Có thùng thính cách không quá xa (1500px)
+        is_desperate_for_heal = p["hp"] < (p["max_hp"] * 0.40) and nearest_airdrop and adist < 1500
+
         if panic_zone:
+            # 1. Chạy bo khẩn cấp
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
             vx += (zx/zdist) * base_speed * 1.8
             vy += (zy/zdist) * base_speed * 1.8
             
-            if p["weapon"] in ["bow", "spear", "dagger"] and nearest_enemy:
+            if p["weapon"] in["bow", "spear", "dagger"] and nearest_enemy:
                 ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                 if edist < w_data["max_rng"] * 0.8:
                     vx -= (ex/edist) * base_speed * 1.5
                     vy -= (ey/edist) * base_speed * 1.5
+
+        elif is_desperate_for_heal:
+            # 2. KHÁT MÁU TUYỆT VỌNG: Bỏ mọi chiến thuật, lao thẳng đi ăn thùng thính (Tốc độ x1.7)
+            ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+            vx += (ax/adist) * base_speed * 1.7
+            vy += (ay/adist) * base_speed * 1.7
+            
+            # Đang cắm đầu chạy ăn máu mà có kẻ địch ngáng đường -> Lách nhẹ né tránh
+            if nearest_enemy:
+                ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
+                if edist < w_data["max_rng"]:
+                    vx -= (ex/edist) * base_speed * 1.0
+                    vy -= (ey/edist) * base_speed * 1.0
         else:
-            nearest_airdrop = min(game_state.airdrops, key=lambda d: calc_dist(p["x"], p["y"], d["x"], d["y"])[2], default=None)
-            if nearest_airdrop and p["hp"] < p["max_hp"] * 0.8:
-                ax, ay, adist = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
-                if adist < 300: 
-                    vx += (ax/adist) * base_speed * 1.2
-                    vy += (ay/adist) * base_speed * 1.2
+            # 3. NHẶT THÍNH TIỆN ĐƯỜNG (Tham lam)
+            # Máu < 85% và rớt ngay gần mình (350px)
+            if nearest_airdrop and p["hp"] < (p["max_hp"] * 0.85) and adist < 350:
+                ax, ay, _ = calc_dist(p["x"], p["y"], nearest_airdrop["x"], nearest_airdrop["y"])
+                vx += (ax/adist) * base_speed * 1.2
+                vy += (ay/adist) * base_speed * 1.2
 
             if is_camping:
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
@@ -451,7 +474,7 @@ def update_game_logic():
                     dx, dy, dist = calc_dist(p["x"], p["y"], target["x"], target["y"])
                     
                     if p["cooldown"] > 0:
-                        if p["weapon"] in ["bow", "spear", "dagger"]:
+                        if p["weapon"] in["bow", "spear", "dagger"]:
                             vx -= (dx/dist) * base_speed * 0.45
                             vy -= (dy/dist) * base_speed * 0.45
                         else:
