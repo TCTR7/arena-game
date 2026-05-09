@@ -62,9 +62,9 @@ class SoundEngine {
     }
   }
 }
-// Đối tượng phát âm thanh dùng chung (Global)
 const sfx = new SoundEngine();
 
+// --- TÌM GIỌNG TIẾNG VIỆT ---
 const getVietnameseVoice = () => {
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
@@ -126,6 +126,66 @@ const speakLog = (text, langStr, muted) => {
   msg.rate = 1.2;
   window.speechSynthesis.speak(msg);
 };
+
+// ============================================================================
+// THUẬT TOÁN TỰ ĐỘNG CHỌN MÀU TƯƠNG PHẢN THÔNG MINH CHO VŨ KHÍ & LƯỚI GRID
+// ============================================================================
+const getDynamicColors = (weapon, hexBg) => {
+  // 1. Chuyển HEX màu nền sang RGB
+  let c = hexBg.substring(1).split('');
+  if(c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+  c = '0x' + c.join('');
+  let rBg = (c >> 16) & 255;
+  let gBg = (c >> 8) & 255;
+  let bBg = c & 255;
+
+  // 2. Độ sáng nền (Công thức luma truyền thống)
+  let lumaBg = (rBg * 0.299 + gBg * 0.587 + bBg * 0.114);
+  let isLightBg = lumaBg > 128; // Cờ kiểm tra nền là sáng hay tối
+
+  // 3. Màu đặc trưng gốc của vũ khí
+  let rW, gW, bW;
+  if (weapon === 'sword') { rW = 239; gW = 68; bW = 68; } // Đỏ
+  else if (weapon === 'bow') { rW = 234; gW = 179; bW = 8; } // Vàng
+  else if (weapon === 'spear') { rW = 59; gW = 130; bW = 246; } // Xanh dương
+  else if (weapon === 'hammer') { rW = 249; gW = 115; bW = 22; } // Cam
+  else if (weapon === 'dagger') { rW = 168; gW = 85; bW = 247; } // Tím
+  else { rW = 255; gW = 255; bW = 255; }
+
+  // 4. Nếu màu gốc của vũ khí quá giống màu Nền -> Đảo màu 100% để chống tàng hình
+  let colorDiff = Math.abs(rW - rBg) + Math.abs(gW - gBg) + Math.abs(bW - bBg);
+  if (colorDiff < 150) {
+    rW = 255 - rBg;
+    gW = 255 - gBg;
+    bW = 255 - bBg;
+  }
+
+  // 5. Tự động chuyển tông màu tùy theo nền
+  if (isLightBg) {
+    // Nếu nền RẤT SÁNG (Vàng, Trắng) -> Dìm màu vũ khí cho đậm xuống, đổ bóng đen
+    rW = Math.max(0, Math.floor(rW * 0.5));
+    gW = Math.max(0, Math.floor(gW * 0.5));
+    bW = Math.max(0, Math.floor(bW * 0.5));
+    return {
+      fill: `rgba(${rW}, ${gW}, ${bW}, 0.15)`,
+      stroke: `rgba(${rW}, ${gW}, ${bW}, 0.9)`,
+      slash: `${rW}, ${gW}, ${bW}`,
+      glow: 'rgba(0,0,0,0.6)' // Đổ bóng viền đen cho dễ thấy
+    };
+  } else {
+    // Nếu nền TỐI -> Kéo sáng màu vũ khí lên thành dạng Neon
+    rW = Math.min(255, rW + 20);
+    gW = Math.min(255, gW + 20);
+    bW = Math.min(255, bW + 20);
+    return {
+      fill: `rgba(${rW}, ${gW}, ${bW}, 0.08)`,
+      stroke: `rgba(${rW}, ${gW}, ${bW}, 0.8)`,
+      slash: `${rW}, ${gW}, ${bW}`,
+      glow: `rgb(${rW}, ${gW}, ${bW})` // Bóng sáng Neon cùng màu
+    };
+  }
+};
+
 
 export default function App() {
   const[gameState, setGameState] = useState(null);
@@ -224,7 +284,7 @@ export default function App() {
 // --- PHASE 1: LOBBY & HOST ---
 function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[name, setName] = useState('');
-  const[pwd, setPwd] = useState('');
+  const [pwd, setPwd] = useState('');
   const[weapon, setWeapon] = useState('sword');
   const[shield, setShield] = useState('wood_shield');
 
@@ -233,11 +293,9 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
 
-  // Xử lý Thay Đổi Vũ Khí -> Phát Âm Thanh Demo
   const handleWeaponChange = (e) => {
     const selectedWep = e.target.value;
     setWeapon(selectedWep);
-    // Vừa chọn xong là gọi API Audio phát tiếng chém luôn
     sfx.play('attack', selectedWep);
   };
 
@@ -357,7 +415,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
       {/* 3. HOST PANEL */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 h-fit">
         <h2 className="text-xl font-bold mb-4 text-purple-400">👑 Bảng điều khiển Host</h2>
-        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host ..." type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        <input className="p-2 w-full bg-gray-700 rounded mb-4 focus:border-purple-500 outline-none" placeholder="Nhập pass Host (dev123) để mở khóa" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === 'dev123' && (
           <div className="flex flex-col gap-3 animate-fade-in">
@@ -409,7 +467,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
 function Phase2({ gameState, hostPwd, setHostPwd }) {
   const [name, setName] = useState('');
   const[pwd, setPwd] = useState('');
-  const[targetRule, setTargetRule] = useState('nearest');
+  const [targetRule, setTargetRule] = useState('nearest');
   const[campRule, setCampRule] = useState('attack');
 
   const saveTactics = async (e) => {
@@ -485,8 +543,10 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 // --- PHASE 3: PLAYING (CANVAS MAP + CASTER PANEL) ---
 function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
+  
+  // Vùng nhớ cho các hạt Particle và Text bay bay
   const vfxRef = useRef([]); 
-
+  
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
   const cardW = gameState.config.character_settings.card_width;
@@ -495,7 +555,7 @@ function Phase3({ gameState, hostPwd }) {
   const handleForceEnd = async () => {
     let pwd = hostPwd;
     if (pwd !== 'dev123') {
-      pwd = window.prompt("Nhập Pass Host (dev123) để Dừng Trận Sớm:");
+      pwd = window.prompt("Nhập Pass Host. Vui lòng nhập Pass (dev123) để Dừng Trận Sớm:");
     }
     if (pwd === "dev123") {
       await fetch(`${API_URL}/force_end`, {
@@ -543,6 +603,12 @@ function Phase3({ gameState, hostPwd }) {
     const ch = gameState.config.map_height;
     const z = gameState.zone;
     
+    // TÍNH TOÁN LƯỚI GRID CHO MỌI LOẠI MÀU NỀN
+    let cBg = gameState.config.bg_color.substring(1).split('');
+    if(cBg.length === 3) cBg = [cBg[0], cBg[0], cBg[1], cBg[1], cBg[2], cBg[2]];
+    cBg = '0x' + cBg.join('');
+    let isLightGrid = ((cBg >> 16) & 255) * 0.299 + ((cBg >> 8) & 255) * 0.587 + (cBg & 255) * 0.114 > 128;
+    
     // LAYER 1: BÊN NGOÀI BO
     ctx.fillStyle = '#111827'; 
     ctx.fillRect(0, 0, cw, ch);
@@ -556,8 +622,8 @@ function Phase3({ gameState, hostPwd }) {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // LAYER 3: KẺ LƯỚI GRID
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    // LAYER 3: KẺ LƯỚI GRID THÔNG MINH (Tương phản với nền)
+    ctx.strokeStyle = isLightGrid ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     for(let i=0; i<cw; i+=100) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,ch); ctx.stroke(); }
     for(let i=0; i<ch; i+=100) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cw,i); ctx.stroke(); }
@@ -569,17 +635,15 @@ function Phase3({ gameState, hostPwd }) {
     ctx.lineWidth = 6;
     ctx.stroke();
 
-    // LAYER 5: BỤI CỎ (STEALTH BUSHES) - ĐÃ FIX MÀU XANH NỔI BẬT DÙ NỀN LÀ VÀNG
+    // LAYER 5: BỤI CỎ (STEALTH BUSHES)
     if(gameState.bushes) {
       gameState.bushes.forEach(b => {
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-        // Màu xanh lá đậm opacity 75% để nổi trên bất kỳ nền nào
         ctx.fillStyle = 'rgba(34, 197, 94, 0.75)'; 
         ctx.fill();
         
-        // Viền xanh lá viền đứt
-        ctx.strokeStyle = 'rgba(20, 83, 45, 0.9)'; // Dark green
+        ctx.strokeStyle = 'rgba(20, 83, 45, 0.9)'; 
         ctx.lineWidth = 4;
         ctx.setLineDash([15, 20]);
         ctx.stroke();
@@ -603,30 +667,23 @@ function Phase3({ gameState, hostPwd }) {
       });
     }
 
-    // LAYER 7: VÒNG TRÒN TẦM ĐÁNH
+    // LAYER 7: VÒNG TRÒN TẦM ĐÁNH TƯƠNG PHẢN THÔNG MINH
     Object.values(gameState.players).forEach(p => {
       if (!p.alive || p.in_bush) return;
       const w_data = WEAPONS[p.weapon];
       
-      let fillColor = 'rgba(255, 255, 255, 0.05)';
-      let strokeColor = 'rgba(255, 255, 255, 0.6)';
-      let glowColor = '#ffffff';
-
-      if (p.weapon === 'sword') { fillColor = 'rgba(239, 68, 68, 0.06)'; strokeColor = 'rgba(239, 68, 68, 0.6)'; glowColor = '#ef4444'; }
-      else if (p.weapon === 'bow') { fillColor = 'rgba(234, 179, 8, 0.06)'; strokeColor = 'rgba(234, 179, 8, 0.6)'; glowColor = '#eab308'; }
-      else if (p.weapon === 'spear') { fillColor = 'rgba(59, 130, 246, 0.06)'; strokeColor = 'rgba(59, 130, 246, 0.6)'; glowColor = '#3b82f6'; }
-      else if (p.weapon === 'hammer') { fillColor = 'rgba(249, 115, 22, 0.06)'; strokeColor = 'rgba(249, 115, 22, 0.6)'; glowColor = '#f97316'; }
-      else if (p.weapon === 'dagger') { fillColor = 'rgba(168, 85, 247, 0.06)'; strokeColor = 'rgba(168, 85, 247, 0.6)'; glowColor = '#a855f7'; }
+      // Áp dụng thuật toán tính màu tương phản
+      const dynColor = getDynamicColors(p.weapon, gameState.config.bg_color);
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, w_data.max_rng, 0, Math.PI*2);
-      ctx.fillStyle = fillColor;
+      ctx.fillStyle = dynColor.fill;
       ctx.fill(); 
 
-      ctx.strokeStyle = strokeColor;
+      ctx.strokeStyle = dynColor.stroke;
       ctx.lineWidth = 1.5;
       ctx.shadowBlur = 10;
-      ctx.shadowColor = glowColor;
+      ctx.shadowColor = dynColor.glow;
       ctx.stroke();
       ctx.shadowBlur = 0;
     });
@@ -636,7 +693,13 @@ function Phase3({ gameState, hostPwd }) {
       if(p.type !== 'melee') { 
         ctx.beginPath();
         ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
-        ctx.fillStyle = p.type === 'dagger' ? '#9CA3AF' : p.type === 'bow' ? '#FDE047' : '#60A5FA';
+        
+        let dColor = '#ffffff';
+        if(p.type === 'dagger') dColor = '#a855f7';
+        if(p.type === 'bow') dColor = '#eab308';
+        if(p.type === 'spear') dColor = '#3b82f6';
+
+        ctx.fillStyle = dColor;
         ctx.fill();
         ctx.shadowBlur = 15;
         ctx.shadowColor = ctx.fillStyle;
@@ -699,7 +762,7 @@ function Phase3({ gameState, hostPwd }) {
       ctx.restore(); 
     });
 
-    // LAYER 10: VẼ VFX (MÁU, CHÉM, CHỮ BAY) TRÊN CÙNG
+    // LAYER 10: VẼ VFX (MÁU, CHÉM, CHỮ BAY) TƯƠNG PHẢN TRÊN CÙNG
     let activeVfx =[];
     vfxRef.current.forEach(v => {
       if (v.type === 'slash') {
@@ -707,16 +770,12 @@ function Phase3({ gameState, hostPwd }) {
         ctx.moveTo(v.x, v.y);
         ctx.lineTo(v.tx, v.ty);
         
-        let slashColor = '255, 255, 255';
-        let glowColor = '#ffffff';
-        if(v.weapon === 'sword') { slashColor = '239, 68, 68'; glowColor = '#ef4444'; }
-        if(v.weapon === 'hammer') { slashColor = '249, 115, 22'; glowColor = '#f97316'; }
-        if(v.weapon === 'spear') { slashColor = '59, 130, 246'; glowColor = '#3b82f6'; }
+        const dynColor = getDynamicColors(v.weapon, gameState.config.bg_color);
 
-        ctx.strokeStyle = `rgba(${slashColor}, ${v.life / 6})`;
+        ctx.strokeStyle = `rgba(${dynColor.slash}, ${v.life / 6})`;
         ctx.lineWidth = v.life * 3; 
         ctx.shadowBlur = 15;
-        ctx.shadowColor = glowColor;
+        ctx.shadowColor = dynColor.glow;
         ctx.stroke();
         ctx.shadowBlur = 0;
       } 
