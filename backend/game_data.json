@@ -15,7 +15,10 @@
             "password": "12345",
             "weapon": "bow",
             "shield": "buckler",
-            "strategy": null
+            "strategy": {
+                "target_rule": "highest_hp",
+                "camp_until": 2
+            }
         },
         {
             "name": "Bot_Yasuo",
@@ -116,6 +119,17 @@
                 "target_rule": "closest",
                 "camp_until": 99
             }
+        },
+        {
+            "name": "TCT1",
+            "password": "11111",
+            "weapon": "sword",
+            "shield": "steel_shield",
+            "strategy": {
+                "target_rule": "counter",
+                "camp_until": 3
+            },
+            "color": "#6ef70b"
         }
     ],
     "config": {

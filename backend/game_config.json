@@ -1,0 +1,133 @@
+{
+    "weapons": {
+        "dagger": {
+            "name": "Dao găm",
+            "icon": "🗡️",
+            "color": "#94a3b8",
+            "rng": 40,
+            "dmg": 18,
+            "cd": 0.4,
+            "wt": 5,
+            "vfx": "slash",
+            "desc": "Chém siêu nhanh, siêu nhẹ."
+        },
+        "sword": {
+            "name": "Kiếm dài",
+            "icon": "🤺",
+            "color": "#ef4444",
+            "rng": 60,
+            "dmg": 30,
+            "cd": 1.0,
+            "wt": 15,
+            "vfx": "slash",
+            "desc": "Cân bằng công thủ."
+        },
+        "spear": {
+            "name": "Trường giáo",
+            "icon": "🔱",
+            "color": "#f59e0b",
+            "rng": 120,
+            "dmg": 25,
+            "cd": 1.2,
+            "wt": 20,
+            "vfx": "thrust",
+            "desc": "Giữ khoảng cách cực tốt."
+        },
+        "bow": {
+            "name": "Cung tiễn",
+            "icon": "🏹",
+            "color": "#22c55e",
+            "rng": 280,
+            "dmg": 16,
+            "cd": 0.8,
+            "wt": 10,
+            "vfx": "arrow",
+            "desc": "Thả diều từ xa."
+        },
+        "magic": {
+            "name": "Gậy phép",
+            "icon": "🪄",
+            "color": "#3b82f6",
+            "rng": 200,
+            "dmg": 45,
+            "cd": 2.0,
+            "wt": 10,
+            "vfx": "magic",
+            "desc": "Sát thương dồn cực mạnh."
+        },
+        "hammer": {
+            "name": "Búa tạ",
+            "icon": "🔨",
+            "color": "#f97316",
+            "rng": 50,
+            "dmg": 65,
+            "cd": 2.5,
+            "wt": 45,
+            "vfx": "bash",
+            "desc": "Phá giáp cực gắt nhưng rất nặng."
+        }
+    },
+    "shields": {
+        "buckler": {
+            "name": "Khiên nhỏ",
+            "icon": "🥏",
+            "def": 0,
+            "wt": 5,
+            "desc": "Chạy cực nhanh, không đỡ được đam."
+        },
+        "magic_ward": {
+            "name": "Khiên phép",
+            "icon": "🔮",
+            "def": 15,
+            "wt": 10,
+            "desc": "Giảm 15% sát thương."
+        },
+        "wood_shield": {
+            "name": "Khiên gỗ",
+            "icon": "🪵",
+            "def": 30,
+            "wt": 20,
+            "desc": "Giảm 30% sát thương. Cân bằng."
+        },
+        "steel_shield": {
+            "name": "Khiên thép",
+            "icon": "🛡️",
+            "def": 55,
+            "wt": 45,
+            "desc": "Giảm 55% sát thương. Khá nặng."
+        },
+        "tower_shield": {
+            "name": "Khiên tháp",
+            "icon": "🧱",
+            "def": 75,
+            "wt": 70,
+            "desc": "Bức tường di động. Giảm 75% sát thương."
+        }
+    },
+    "synergies": {
+        "dagger": [
+            "magic_ward",
+            "wood_shield"
+        ],
+        "sword": [
+            "wood_shield",
+            "buckler"
+        ],
+        "spear": [
+            "steel_shield",
+            "buckler"
+        ],
+        "bow": [
+            "magic_ward",
+            "tower_shield"
+        ],
+        "magic": [
+            "steel_shield",
+            "tower_shield"
+        ],
+        "hammer": [
+            "tower_shield",
+            "steel_shield"
+        ]
+    }
+}
