@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
-// --- SFX AUDIO ENGINE (FIX LỖI MẤT TIẾNG) ---
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -20,16 +19,12 @@ class SoundEngine {
 
   play(type, weapon = null) {
     if (this.muted || !this.ctx) return;
-    
-    // Ép Trình duyệt "Tỉnh dậy" trước khi phát âm thanh để tránh bị mất tiếng giữa chừng
     if (this.ctx.state === 'suspended') this.ctx.resume();
-
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     
-    // Delay 1 xíu (0.02s) để tránh bị rách tiếng
     const t = this.ctx.currentTime + 0.02; 
     
     if (type === 'attack') {
@@ -113,7 +108,7 @@ class VoiceEngine {
     if (viVoice) u.voice = viVoice;
     u.lang = 'vi-VN';
     u.pitch = 0.6 + Math.random() * 0.8; 
-    u.rate = type === 'reveal' ? 1.0 : 1.6; // Đọc bình luận từ tốn hơn
+    u.rate = type === 'reveal' ? 1.0 : 1.6; 
     u.volume = 1.0;
     
     this.synth.speak(u);
@@ -183,7 +178,6 @@ const getDynamicColors = (weapon, hexBg) => {
   }
 };
 
-// Map Dịch Tên Chiến Thuật
 const TARGET_NAMES = { nearest: "Gần Nhất", lowest_hp: "Kẻ Yếu HP", tankiest: "Đứa Trâu Nhất", counter: "Khắc Hệ" };
 const CAMP_NAMES = { attack: "Khô Máu Tới Cùng", top5: "Núp đến Top 5", top3: "Núp đến Top 3", top2: "Núp đến Top 2" };
 
@@ -194,8 +188,6 @@ export default function App() {
   
   const[globalHostPwd, setGlobalHostPwd] = useState('');
   const spokenLogs = useRef(new Set());
-  
-  // Track previous phase to trigger voice announcements on phase change
   const prevPhase = useRef('');
 
   useEffect(() => {
@@ -211,7 +203,6 @@ export default function App() {
       const data = JSON.parse(e.data);
       setGameState(data);
       
-      // Đọc Voice khi chuyển sang Phase Công bố Chiến Thuật
       if (data.phase === 'reveal' && prevPhase.current !== 'reveal' && started) {
         humanVoice.shout('reveal');
       }
@@ -338,22 +329,19 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
         <form onSubmit={handleRegister} className="flex flex-col gap-3">
           <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Tên hiển thị" value={name} onChange={e=>setName(e.target.value)} />
           <input className="p-2 bg-gray-700 rounded focus:border-blue-500 outline-none" placeholder="Mật khẩu (để đổi chiến thuật)" type="password" value={pwd} onChange={e=>setPwd(e.target.value)} />
-          
           <label className="text-sm text-gray-400 mt-2 flex justify-between items-center">
-            <span>Chọn Vũ Khí</span>
-            <span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
+            <span>Chọn Vũ Khí</span><span className="text-xs text-green-400 font-bold animate-pulse">🔊 Bấm để nghe thử</span>
           </label>
           <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-green-500" value={weapon} onChange={handleWeaponChange}>
             {Object.entries(WEAPONS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
-
           <label className="text-sm text-gray-400 mt-2">Chọn Khiên</label>
           <select className="p-2 bg-gray-700 rounded cursor-pointer border border-transparent focus:border-blue-500" value={shield} onChange={e=>setShield(e.target.value)}>
             {Object.entries(SHIELDS).map(([k,v]) => <option key={k} value={k}>{v.e} {v.n}</option>)}
           </select>
-
           <button className="bg-blue-600 hover:bg-blue-500 py-3 mt-4 rounded font-bold shadow-lg">GHI DANH LÊN BẢNG</button>
         </form>
+
         <div className="mt-8 border-t border-gray-700 pt-4">
           <h3 className="font-bold text-green-400 mb-2">Người đã vào phòng ({Object.keys(gameState.players).length}):</h3>
           <div className="flex flex-wrap gap-2">
@@ -479,7 +467,6 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 
   const forceStart = async () => {
     if (hostPwd !== 'dev123') return alert("Sai mật khẩu Host!");
-    // ĐÃ FIX: Host skip thì nhảy sang Reveal trước
     await fetch(`${API_URL}/phase/reveal`, { method: "POST" });
   };
 
@@ -525,7 +512,7 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
 
         <div className="bg-gray-800 p-8 rounded-xl border border-purple-500 shadow-2xl flex flex-col justify-center">
           <h3 className="text-xl font-bold mb-4 text-center text-purple-400">👑 Quyền Host</h3>
-          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược.</p>
+          <p className="text-sm text-gray-300 text-center mb-6">Sử dụng khi bạn muốn ép tiến độ bỏ qua thời gian đếm ngược, hoặc test sức mạnh Bots.</p>
           <input className="p-3 bg-gray-700 rounded mb-4 text-center text-lg outline-none" placeholder="Nhập Pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
           {hostPwd === 'dev123' && (
             <button onClick={forceStart} className="bg-red-600 hover:bg-red-500 py-4 px-6 rounded font-bold text-white uppercase tracking-wider animate-pulse shadow-[0_0_20px_rgba(220,38,38,0.6)]">
@@ -538,7 +525,7 @@ function Phase2({ gameState, hostPwd, setHostPwd }) {
   );
 }
 
-// --- PHASE REVEAL (MỚI THÊM): BẢNG CÔNG BỐ CHIẾN THUẬT ---
+// --- PHASE REVEAL: BẢNG CÔNG BỐ CHIẾN THUẬT ---
 function PhaseReveal({ gameState, hostPwd }) {
   const WEAPONS = gameState.config.weapons;
   const SHIELDS = gameState.config.shields;
@@ -570,20 +557,15 @@ function PhaseReveal({ gameState, hostPwd }) {
         </div>
       </div>
 
-      {/* Grid danh sách người chơi */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pb-10 custom-scrollbar pr-2">
         {Object.values(gameState.players).map((p, idx) => (
           <div key={idx} className="bg-gray-800 border-2 border-gray-700 p-4 rounded-xl shadow-lg flex flex-col gap-3 relative overflow-hidden group hover:border-yellow-500 transition-colors">
-            
-            {/* Header: Tên & Vũ khí */}
             <div className="flex justify-between items-center border-b border-gray-700 pb-2">
               <span className="font-bold text-lg truncate w-2/3 text-blue-300">{p.name}</span>
               <span className="text-2xl drop-shadow-md">
                 {WEAPONS[p.weapon].e} {SHIELDS[p.shield].e}
               </span>
             </div>
-
-            {/* Chiến thuật */}
             <div className="flex flex-col gap-2">
               <div className="bg-gray-900 p-2 rounded border border-gray-700">
                 <span className="text-xs text-gray-500 block uppercase font-bold">🎯 Ưu Tiên Đánh</span>
@@ -598,8 +580,6 @@ function PhaseReveal({ gameState, hostPwd }) {
                 </span>
               </div>
             </div>
-            
-            {/* Lớp filter làm đẹp */}
             <div className="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 bg-yellow-500 opacity-5 rounded-full blur-xl group-hover:opacity-20 transition-opacity"></div>
           </div>
         ))}
@@ -713,6 +693,7 @@ function Phase3({ gameState, hostPwd }) {
         ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(34, 197, 94, 0.75)'; 
         ctx.fill();
+        
         ctx.strokeStyle = 'rgba(20, 83, 45, 0.9)'; 
         ctx.lineWidth = 4;
         ctx.setLineDash([15, 20]);
@@ -789,14 +770,25 @@ function Phase3({ gameState, hostPwd }) {
       }
 
       const isBerserk = p.hp < (p.max_hp * 0.3);
+      // ĐÃ FIX: NHẬN BIẾT MẤT MÁU (Flash Red)
+      const isFlashing = p.flash_red; 
+      
       const cx = p.x - cardW / 2;
       const cy = p.y - cardH / 2;
 
       ctx.fillStyle = '#1F2937';
       ctx.fillRect(cx, cy, cardW, cardH);
-      ctx.strokeStyle = isBerserk ? '#EF4444' : '#FBBF24';
-      ctx.lineWidth = isBerserk ? 4 : 2;
+      
+      // Viền thẻ bài chuyển MÀU ĐỎ DÀY khi bị đánh
+      ctx.strokeStyle = isFlashing ? '#ff0000' : (isBerserk ? '#EF4444' : '#FBBF24');
+      ctx.lineWidth = isFlashing ? 6 : (isBerserk ? 4 : 2);
+      
+      if(isFlashing) {
+          ctx.shadowBlur = 25;
+          ctx.shadowColor = '#ff0000';
+      }
       ctx.strokeRect(cx, cy, cardW, cardH);
+      ctx.shadowBlur = 0; // Tắt glow
 
       ctx.fillStyle = 'white';
       ctx.font = 'bold 16px sans-serif';
