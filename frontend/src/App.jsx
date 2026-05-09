@@ -3,6 +3,32 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
+// --- QUẢN LÝ DANH SÁCH GIỌNG NÓI TOÀN CỤC ---
+let availableVoices = [];
+const loadVoices = () => {
+  if (window.speechSynthesis) {
+    availableVoices = window.speechSynthesis.getVoices();
+  }
+};
+if (window.speechSynthesis) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+const getVietnameseVoice = () => {
+  if (!availableVoices.length) loadVoices();
+  // Ưu tiên 1: Giọng Windows 11/10 tự nhiên (Microsoft An / Hoài My)
+  let v = availableVoices.find(voice => (voice.name.includes("An") || voice.name.includes("HoaiMy")) && voice.lang.includes("vi"));
+  if (v) return v;
+  // Ưu tiên 2: Giọng Google mặc định
+  v = availableVoices.find(voice => voice.name === "Google Tiếng Việt");
+  if (v) return v;
+  // Ưu tiên 3: Bất kỳ giọng nào có gắn mác vi-VN hoặc Vietnamese
+  v = availableVoices.find(voice => voice.lang.includes('vi') || voice.name.toLowerCase().includes('vietnamese'));
+  return v;
+};
+
+// --- HỆ THỐNG ÂM THANH VŨ KHÍ (WEB AUDIO API CẢI TIẾN) ---
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -20,60 +46,85 @@ class SoundEngine {
   play(type, weapon = null) {
     if (this.muted || !this.ctx) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
+    
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     
-    const t = this.ctx.currentTime + 0.02; 
+    const t = this.ctx.currentTime; 
     
     if (type === 'attack') {
       if (weapon === 'sword') {
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
-        gain.gain.setValueAtTime(0.6, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1);
+        // Tiếng chém kiếm kim loại sắc bén
+        osc.type = 'sawtooth'; 
+        osc.frequency.setValueAtTime(800, t); 
+        osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+        gain.gain.setValueAtTime(0.8, t); 
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); 
+        osc.start(t); osc.stop(t + 0.15);
       } else if (weapon === 'spear') {
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t); osc.frequency.linearRampToValueAtTime(100, t + 0.05);
-        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.05); osc.start(t); osc.stop(t + 0.05);
+        // Tiếng đâm xé gió dứt khoát
+        osc.type = 'triangle'; 
+        osc.frequency.setValueAtTime(400, t); 
+        osc.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+        gain.gain.setValueAtTime(1.0, t); 
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12); 
+        osc.start(t); osc.stop(t + 0.12);
       } else if (weapon === 'dagger') {
-        osc.type = 'sine'; osc.frequency.setValueAtTime(1000, t); osc.frequency.exponentialRampToValueAtTime(1500, t + 0.08);
-        gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08);
+        // Tiếng phi dao vút cực nhanh
+        osc.type = 'sine'; 
+        osc.frequency.setValueAtTime(1500, t); 
+        osc.frequency.exponentialRampToValueAtTime(800, t + 0.05);
+        gain.gain.setValueAtTime(0.5, t); 
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.05); 
+        osc.start(t); osc.stop(t + 0.05);
       } else if (weapon === 'bow') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(350, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
+        // Tiếng dây cung bật (Kết hợp 2 Oscillator)
+        osc.type = 'sine'; 
+        osc.frequency.setValueAtTime(600, t); 
+        osc.frequency.exponentialRampToValueAtTime(150, t + 0.2);
+        gain.gain.setValueAtTime(0.7, t); 
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+        // Oscillator 2 tạo tiếng "pật" của dây
+        const oscSnap = this.ctx.createOscillator();
+        oscSnap.type = 'square';
+        oscSnap.frequency.setValueAtTime(900, t);
+        oscSnap.frequency.exponentialRampToValueAtTime(300, t + 0.05);
+        oscSnap.connect(gain);
+        oscSnap.start(t); oscSnap.stop(t + 0.05);
+        osc.start(t); osc.stop(t + 0.2);
       } else if (weapon === 'hammer') {
-        osc.type = 'square'; osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
-        gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4); osc.start(t); osc.stop(t + 0.4);
+        // Tiếng búa tạ nện xuống đất rền vang
+        osc.type = 'square'; 
+        osc.frequency.setValueAtTime(120, t); 
+        osc.frequency.exponentialRampToValueAtTime(20, t + 0.35);
+        gain.gain.setValueAtTime(1.2, t); 
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35); 
+        osc.start(t); osc.stop(t + 0.35);
       }
     } 
     else if (type === 'death') {
-      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, t); osc.frequency.linearRampToValueAtTime(10, t + 0.5);
-      gain.gain.setValueAtTime(0.8, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5);
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(10, t + 0.6);
+      gain.gain.setValueAtTime(0.9, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6); osc.start(t); osc.stop(t + 0.6);
     }
     else if (type === 'win') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.setValueAtTime(500, t+0.2); osc.frequency.setValueAtTime(600, t+0.4);
-      gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0, t + 1.0); osc.start(t); osc.stop(t + 1.0);
+      osc.type = 'square'; osc.frequency.setValueAtTime(440, t); osc.frequency.setValueAtTime(554, t+0.15); osc.frequency.setValueAtTime(659, t+0.3);
+      gain.gain.setValueAtTime(0.4, t); gain.gain.linearRampToValueAtTime(0, t + 1.2); osc.start(t); osc.stop(t + 1.2);
     }
     else if (type === 'heal') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1200, t + 0.3);
-      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.linearRampToValueAtTime(1000, t + 0.3);
+      gain.gain.setValueAtTime(0.4, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3);
     }
     else if (type === 'dodge') {
-      osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.2);
-      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.2); osc.start(t); osc.stop(t + 0.2);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(300, t + 0.15);
+      gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15);
     }
   }
 }
 const sfx = new SoundEngine();
 
-const getVietnameseVoice = () => {
-  if (!window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices();
-  let v = voices.find(voice => voice.name === "Google Tiếng Việt");
-  if (v) return v;
-  v = voices.find(voice => voice.lang.includes('vi') || voice.name.toLowerCase().includes('vietnamese'));
-  return v;
-};
-
+// --- HỆ THỐNG GIỌNG NÓI MC BÌNH LUẬN ---
 class VoiceEngine {
   constructor() {
     this.synth = window.speechSynthesis;
@@ -120,11 +171,17 @@ const humanVoice = new VoiceEngine();
 const speakLog = (text, langStr, muted) => {
   if (muted || !window.speechSynthesis) return;
   const msg = new SpeechSynthesisUtterance(text);
-  const viVoice = getVietnameseVoice();
-  if (langStr === 'vi' && viVoice) {
-    msg.voice = viVoice;
+  
+  if (langStr === 'vi') {
+    const viVoice = getVietnameseVoice();
+    if (viVoice) msg.voice = viVoice;
+    msg.lang = 'vi-VN';
+  } else {
+    const enVoice = availableVoices.find(voice => voice.lang.startsWith('en'));
+    if (enVoice) msg.voice = enVoice;
+    msg.lang = 'en-US';
   }
-  msg.lang = langStr === 'vi' ? 'vi-VN' : 'en-US';
+  
   msg.rate = 1.2;
   window.speechSynthesis.speak(msg);
 };
@@ -191,13 +248,6 @@ export default function App() {
   const prevPhase = useRef('');
 
   useEffect(() => {
-    if(window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
-      window.speechSynthesis.getVoices();
-    }
-  },[]);
-
-  useEffect(() => {
     const unlockAudio = () => {
       sfx.init();
       document.removeEventListener('click', unlockAudio);
@@ -258,7 +308,7 @@ export default function App() {
           BẤM VÀO ĐÂY ĐỂ VÀO GAME (Cấp quyền Audio)
         </button>
         <p className="mt-8 text-gray-500 text-sm max-w-lg text-center">
-          * Khuyên dùng trình duyệt Chrome/Edge để có Voice AI MC bình luận.
+          * Khuyên dùng trình duyệt Chrome/Edge để có Voice AI MC bình luận. Hệ thống sẽ tự động bắt giọng Tiếng Việt của hệ điều hành.
         </p>
       </div>
     );
@@ -929,7 +979,7 @@ function Phase3({ gameState, hostPwd }) {
   );
 }
 
-// --- PHASE FINISHED (ĐÃ NÂNG CẤP BẢNG PHONG THẦN) ---
+// --- PHASE FINISHED (BẢNG PHONG THẦN) ---
 function PhaseFinished({ gameState }) {
   const winner = Object.values(gameState.players).find(p => p.alive);
   const WEAPONS = gameState.config.weapons;
@@ -946,7 +996,6 @@ function PhaseFinished({ gameState }) {
         {winner && (
           <div className="bg-gray-900 p-6 rounded-xl border border-gray-700 shadow-inner flex flex-col md:flex-row gap-8 text-left">
             
-            {/* Cột 1: Thông số trang bị & Chiến thuật */}
             <div className="flex-1 border-b md:border-b-0 md:border-r border-gray-700 pb-6 md:pb-0 md:pr-6">
                 <h3 className="text-green-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">THÔNG SỐ SẢNH CHỜ</h3>
                 <p className="text-lg mb-2">Trang bị: {WEAPONS[winner.weapon].e} {WEAPONS[winner.weapon].n} + {SHIELDS[winner.shield].e} {SHIELDS[winner.shield].n}</p>
@@ -955,7 +1004,6 @@ function PhaseFinished({ gameState }) {
                 <p className="text-lg">AI Sinh tồn: <strong className="text-yellow-400">{CAMP_NAMES[winner.camp_rule]}</strong></p>
             </div>
 
-            {/* Cột 2: Thống kê sinh tồn (Chỉ số ẩn) */}
             <div className="flex-1">
                 <h3 className="text-purple-400 font-bold text-xl border-b border-gray-700 pb-2 mb-4">THỐNG KÊ CHIẾN ĐẤU (STATS)</h3>
                 
