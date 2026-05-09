@@ -18,12 +18,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ĐÃ FIX: Tăng TẦM ĐÁNH của tất cả vũ khí lên khoảng 1.5 lần để vòng tròn bung ra khỏi thẻ bài to
 WEAPONS = {
-    "dagger": {"name": "Dao găm", "min_rng": 40, "max_rng": 120, "dmg": 14, "cd_ticks": 4, "weight": 0, "counters": "wood_shield"},
-    "sword": {"name": "Kiếm dài", "min_rng": 0, "max_rng": 85, "dmg": 25, "cd_ticks": 10, "weight": 15, "counters":["wood_shield", "buckler"]},
-    "spear": {"name": "Trường giáo", "min_rng": 35, "max_rng": 90, "dmg": 22, "cd_ticks": 12, "weight": 20, "counters":["steel_shield", "buckler"]},
-    "bow": {"name": "Cung tiễn", "min_rng": 80, "max_rng": 220, "dmg": 18, "cd_ticks": 8, "weight": 10, "counters":["buckler", "wood_shield"]},
-    "hammer": {"name": "Búa tạ", "min_rng": 0, "max_rng": 75, "dmg": 65, "cd_ticks": 22, "weight": 40, "counters": "steel_shield"}
+    "dagger": {"name": "Dao găm", "min_rng": 50, "max_rng": 160, "dmg": 14, "cd_ticks": 4, "weight": 0, "counters": "wood_shield"},
+    "sword": {"name": "Kiếm dài", "min_rng": 0, "max_rng": 110, "dmg": 25, "cd_ticks": 10, "weight": 15, "counters":["wood_shield", "buckler"]},
+    "spear": {"name": "Trường giáo", "min_rng": 50, "max_rng": 140, "dmg": 22, "cd_ticks": 12, "weight": 20, "counters":["steel_shield", "buckler"]},
+    "bow": {"name": "Cung tiễn", "min_rng": 100, "max_rng": 300, "dmg": 18, "cd_ticks": 8, "weight": 10, "counters":["buckler", "wood_shield"]},
+    "hammer": {"name": "Búa tạ", "min_rng": 0, "max_rng": 100, "dmg": 65, "cd_ticks": 22, "weight": 40, "counters": "steel_shield"}
 }
 
 SHIELDS = {
@@ -43,7 +44,7 @@ class GameState:
         self.config = {"room_name": "Giải Đấu Cờ Nhân Phẩm", "map_width": 2000, "map_height": 2000, "bg_color": "#052e16", "language": "vi"}
         self.players = {}
         self.logs =[]
-        self.events = []
+        self.events =[]
         self.projectiles =[]
         self.ticks = 0
         self.phase2_timer = 180
@@ -160,6 +161,12 @@ def add_bots():
     game_state.save_data()
     return {"status": "ok"}
 
+@app.post("/api/clear_players")
+def clear_players():
+    game_state.players = {}
+    game_state.save_data()
+    return {"status": "ok"}
+
 @app.post("/api/phase/{phase}")
 def set_phase(phase: str):
     game_state.phase = phase
@@ -182,7 +189,6 @@ def set_phase(phase: str):
             p["y"] = random.randint(100, h - 100)
             p["cooldown"] = 0
     elif phase == "waiting":
-        game_state.players = {}
         game_state.save_data()
     return {"status": "ok"}
 
@@ -194,11 +200,9 @@ def force_end_game(req: ForceEndReq):
     if game_state.phase == "playing":
         alive_players =[p for p in game_state.players.values() if p["alive"]]
         if alive_players:
-            # Xếp người máu cao nhất lên đầu
             alive_players.sort(key=lambda x: x["hp"], reverse=True)
             winner = alive_players[0]
             
-            # Giết hết những người còn lại
             for p in alive_players[1:]:
                 p["hp"] = 0
                 p["alive"] = False
@@ -293,8 +297,8 @@ def update_game_logic():
         for j in range(i+1, len(alive_players)):
             p1, p2 = alive_players[i], alive_players[j]
             dx, dy, dist = calc_dist(p1["x"], p1["y"], p2["x"], p2["y"])
-            if dist < 30:
-                force = (30 - dist) / 5
+            if dist < 45: # Tăng khoảng cách đẩy lùi ra xíu vì nhân vật giờ to hơn
+                force = (45 - dist) / 5
                 repulsion[p1["name"]][0] -= (dx/dist) * force
                 repulsion[p1["name"]][1] -= (dy/dist) * force
                 repulsion[p2["name"]][0] += (dx/dist) * force
@@ -311,7 +315,7 @@ def update_game_logic():
         outside_zone = dist_to_zone > game_state.zone_current_radius
         
         if outside_zone:
-            p["hp"] -= 0.3 
+            p["hp"] -= 0.8 
 
         if p["hp"] <= 0:
             p["hp"] = 0
@@ -332,8 +336,8 @@ def update_game_logic():
         min_enemy_hp = min((e["hp"] for e in enemies), default=0)
 
         nearest_enemy = min(enemies, key=lambda e: calc_dist(p["x"], p["y"], e["x"], e["y"])[2]) if enemies else None
+        
         target = None
-
         if enemies:
             if p["target_rule"] == "lowest_hp": target = min(enemies, key=lambda e: e["hp"])
             elif p["target_rule"] == "tankiest": target = max(enemies, key=lambda e: e["hp"])
@@ -355,7 +359,7 @@ def update_game_logic():
                 dist_to_enemy = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])[2] if nearest_enemy else 9999
                 can_tank = outside_zone and p["hp"] > 150 and p["hp"] >= min_enemy_hp
                 
-                if dist_to_enemy < 350:
+                if dist_to_enemy < 450:
                     ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                     vx -= (ex/edist) * base_speed * 1.2
                     vy -= (ey/edist) * base_speed * 1.2 
@@ -398,51 +402,65 @@ def update_game_logic():
                             vx -= (dx/dist) * base_speed * 0.8
                             vy -= (dy/dist) * base_speed * 0.8
 
-        combat_target = target if not is_camping else nearest_enemy
+        preferred_target = target if not is_camping else nearest_enemy
 
-        if combat_target:
-            cx, cy, cdist = calc_dist(p["x"], p["y"], combat_target["x"], combat_target["y"])
-            if w_data["min_rng"] <= cdist <= w_data["max_rng"]:
-                if p["cooldown"] <= 0:
-                    t_shield_data = SHIELDS[combat_target["shield"]]
-                    base_dmg = w_data["dmg"]
-                    if p["weapon"] == "bow" and combat_target["shield"] == "steel_shield": base_dmg /= 2.0
-                    
-                    multiplier = 2.0 if is_counter(p["weapon"], combat_target["shield"]) else 1.0
-                    final_dmg = (base_dmg * multiplier) * (1.0 - t_shield_data["block"])
-                    combat_target["hp"] -= final_dmg
-                    p["cooldown"] = w_data["cd_ticks"]
+        if p["cooldown"] <= 0 and enemies:
+            enemies_in_range =[]
+            for e in enemies:
+                ex, ey, edist = calc_dist(p["x"], p["y"], e["x"], e["y"])
+                if w_data["min_rng"] <= edist <= w_data["max_rng"]:
+                    enemies_in_range.append((e, edist, ex, ey))
+            
+            if enemies_in_range:
+                actual_target_info = None
+                
+                if preferred_target:
+                    actual_target_info = next((t for t in enemies_in_range if t[0]["name"] == preferred_target["name"]), None)
+                
+                if not actual_target_info:
+                    actual_target_info = min(enemies_in_range, key=lambda t: t[1])
+                
+                actual_target, adist, ax, ay = actual_target_info
 
-                    game_state.events.append({
-                        "type": "attack", "weapon": p["weapon"],
-                        "x": p["x"], "y": p["y"], "tx": combat_target["x"], "ty": combat_target["y"]
+                t_shield_data = SHIELDS[actual_target["shield"]]
+                base_dmg = w_data["dmg"]
+                if p["weapon"] == "bow" and actual_target["shield"] == "steel_shield": base_dmg /= 2.0
+                
+                multiplier = 2.0 if is_counter(p["weapon"], actual_target["shield"]) else 1.0
+                final_dmg = (base_dmg * multiplier) * (1.0 - t_shield_data["block"])
+                actual_target["hp"] -= final_dmg
+                p["cooldown"] = w_data["cd_ticks"]
+
+                game_state.events.append({
+                    "type": "attack", "weapon": p["weapon"],
+                    "x": p["x"], "y": p["y"], "tx": actual_target["x"], "ty": actual_target["y"]
+                })
+                game_state.events.append({
+                    "type": "hurt", "weapon": actual_target["weapon"],
+                    "x": actual_target["x"], "y": actual_target["y"]
+                })
+                
+                if p["weapon"] in["bow", "dagger", "spear"]:
+                    game_state.projectiles.append({
+                        "x": p["x"], "y": p["y"], "vx": (ax/adist) * 20, "vy": (ay/adist) * 20,
+                        "life": int(adist/20), "type": p["weapon"]
                     })
-                    game_state.events.append({
-                        "type": "hurt", "weapon": combat_target["weapon"],
-                        "x": combat_target["x"], "y": combat_target["y"]
-                    })
-                    
-                    if p["weapon"] in ["bow", "dagger", "spear"]:
-                        game_state.projectiles.append({
-                            "x": p["x"], "y": p["y"], "vx": (cx/cdist) * 15, "vy": (cy/cdist) * 15,
-                            "life": int(cdist/15), "type": p["weapon"]
-                        })
 
-                    if p["weapon"] in["sword", "hammer"]:
-                        kb = 10 if p["weapon"] == "sword" else 25
-                        combat_target["x"] += (cx/cdist) * kb
-                        combat_target["y"] += (cy/cdist) * kb
+                if p["weapon"] in["sword", "hammer"]:
+                    kb = 10 if p["weapon"] == "sword" else 25
+                    actual_target["x"] += (ax/adist) * kb
+                    actual_target["y"] += (ay/adist) * kb
 
-                    if multiplier == 2.0:
-                        game_state.add_log(f"💥 {p['name']} khắc hệ, giáng {int(final_dmg)} HP vào {combat_target['name']}!", 
-                                           f"💥 {p['name']} counters, deals {int(final_dmg)} dmg to {combat_target['name']}!")
-                    
-                    if combat_target["hp"] <= 0:
-                        combat_target["hp"] = 0
-                        combat_target["alive"] = False
-                        game_state.events.append({"type": "death"})
-                        game_state.add_log(f"💀 {p['name']} đã kết liễu {combat_target['name']}!", 
-                                           f"💀 {p['name']} killed {combat_target['name']}!")
+                if multiplier == 2.0:
+                    game_state.add_log(f"💥 {p['name']} tiện tay khắc hệ, giáng {int(final_dmg)} HP vào {actual_target['name']}!", 
+                                       f"💥 {p['name']} counters via opportunity, deals {int(final_dmg)} dmg to {actual_target['name']}!")
+                
+                if actual_target["hp"] <= 0:
+                    actual_target["hp"] = 0
+                    actual_target["alive"] = False
+                    game_state.events.append({"type": "death"})
+                    game_state.add_log(f"💀 {p['name']} đã quét dọn {actual_target['name']}!", 
+                                       f"💀 {p['name']} killed {actual_target['name']}!")
 
         p["x"] += vx
         p["y"] += vy

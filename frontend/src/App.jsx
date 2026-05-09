@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 const API_URL = "http://localhost:8000/api";
 const WS_URL = "ws://localhost:8000/ws";
 
-// --- SFX AUDIO ENGINE ---
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -56,7 +55,14 @@ class SoundEngine {
 }
 const sfx = new SoundEngine();
 
-// --- HUMAN VOICE ENGINE ---
+// ĐÃ FIX: HỆ THỐNG ÉP GIỌNG TIẾNG VIỆT
+const getVietnameseVoice = () => {
+  if (!window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  // Tìm giọng chứa mã lang vi-VN hoặc chứa chữ Vietnamese
+  return voices.find(v => v.lang === 'vi-VN' || v.lang === 'vi_VN' || v.name.toLowerCase().includes('vietnamese'));
+};
+
 class VoiceEngine {
   constructor() {
     this.synth = window.speechSynthesis;
@@ -74,7 +80,12 @@ class VoiceEngine {
     
     const text = type === 'attack' ? attackShouts[Math.floor(Math.random()*attackShouts.length)] : hurtScreams[Math.floor(Math.random()*hurtScreams.length)];
     const u = new SpeechSynthesisUtterance(text);
+    
+    // Gán trực tiếp Voice Tiếng Việt để tránh đọc sai ngữ điệu
+    const viVoice = getVietnameseVoice();
+    if (viVoice) u.voice = viVoice;
     u.lang = 'vi-VN';
+    
     u.pitch = 0.6 + Math.random() * 0.8; 
     u.rate = 1.6; 
     u.volume = 1.0;
@@ -88,17 +99,23 @@ const humanVoice = new VoiceEngine();
 const speakLog = (text, langStr, muted) => {
   if (muted || !window.speechSynthesis) return;
   const msg = new SpeechSynthesisUtterance(text);
+  
+  const viVoice = getVietnameseVoice();
+  if (langStr === 'vi' && viVoice) {
+    msg.voice = viVoice;
+  }
   msg.lang = langStr === 'vi' ? 'vi-VN' : 'en-US';
   msg.rate = 1.2;
   window.speechSynthesis.speak(msg);
 };
 
+// ĐÃ FIX: Đồng bộ max_rng khớp với Backend
 const WEAPONS = {
-  dagger: { n: "Dao găm", e: "🗡️", r: "40-120", max_rng: 120, d: 14, cd: "0.4s", w: 0 },
-  sword: { n: "Kiếm dài", e: "⚔️", r: "0-85", max_rng: 85, d: 25, cd: "1.0s", w: 15 },
-  spear: { n: "Trường giáo", e: "🔱", r: "35-90", max_rng: 90, d: 22, cd: "1.2s", w: 20 },
-  bow: { n: "Cung tiễn", e: "🏹", r: "80-220", max_rng: 220, d: 18, cd: "0.8s", w: 10 },
-  hammer: { n: "Búa tạ", e: "🔨", r: "0-75", max_rng: 75, d: 65, cd: "2.2s", w: 40 }
+  dagger: { n: "Dao găm", e: "🗡️", r: "50-160", max_rng: 160, d: 14, cd: "0.4s", w: 0 },
+  sword: { n: "Kiếm dài", e: "⚔️", r: "0-110", max_rng: 110, d: 25, cd: "1.0s", w: 15 },
+  spear: { n: "Trường giáo", e: "🔱", r: "50-140", max_rng: 140, d: 22, cd: "1.2s", w: 20 },
+  bow: { n: "Cung tiễn", e: "🏹", r: "100-300", max_rng: 300, d: 18, cd: "0.8s", w: 10 },
+  hammer: { n: "Búa tạ", e: "🔨", r: "0-100", max_rng: 100, d: 65, cd: "2.2s", w: 40 }
 };
 const SHIELDS = {
   buckler: { n: "Khiên nhỏ", e: "🥏", w: 2, b: "5%" },
@@ -113,6 +130,11 @@ export default function App() {
   
   const[globalHostPwd, setGlobalHostPwd] = useState('');
   const spokenLogs = useRef(new Set());
+
+  // Kích hoạt load Voice (Chrome đôi lúc cần load mồi)
+  useEffect(() => {
+    if(window.speechSynthesis) window.speechSynthesis.getVoices();
+  },[]);
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
@@ -192,7 +214,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
   const[name, setName] = useState('');
   const [pwd, setPwd] = useState('');
   const[weapon, setWeapon] = useState('sword');
-  const [shield, setShield] = useState('wood_shield');
+  const[shield, setShield] = useState('wood_shield');
 
   const[localConfig, setLocalConfig] = useState(gameState.config);
 
@@ -213,6 +235,12 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
       body: JSON.stringify(localConfig)
     });
     alert("Đã lưu cấu hình lên Server!");
+  };
+
+  const handleClearPlayers = async () => {
+    if(window.confirm("Xóa toàn bộ người chơi hiện tại?")) {
+      await fetch(`${API_URL}/clear_players`, { method: 'POST' });
+    }
   };
 
   return (
@@ -288,8 +316,13 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
             </div>
             <button onClick={saveConfig} className="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold">💾 LƯU CẤU HÌNH</button>
             <hr className="border-gray-600 my-2" />
-            <button onClick={()=>fetch(`${API_URL}/bots`,{method:'POST'})} className="bg-gray-600 hover:bg-gray-500 py-2 rounded">🤖 Add 10 Bots</button>
-            <button onClick={()=>fetch(`${API_URL}/phase/strategy`,{method:'POST'})} className="bg-red-600 hover:bg-red-500 py-3 rounded font-bold text-lg mt-2 animate-pulse">🔥 START GAME -> LÊN CHIẾN THUẬT</button>
+            
+            <div className="flex gap-2">
+              <button onClick={()=>fetch(`${API_URL}/bots`,{method:'POST'})} className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded text-sm font-bold">🤖 10 Bots</button>
+              <button onClick={handleClearPlayers} className="flex-1 bg-red-900 hover:bg-red-800 py-2 rounded text-sm font-bold shadow-md border border-red-700">🗑️ Xóa Tất Cả</button>
+            </div>
+
+            <button onClick={()=>fetch(`${API_URL}/phase/strategy`,{method:'POST'})} className="bg-red-600 hover:bg-red-500 py-3 rounded font-bold text-lg mt-2 animate-pulse">🔥 BẮT ĐẦU -> LÊN CHIẾN THUẬT</button>
           </div>
         )}
       </div>
@@ -379,7 +412,6 @@ function Phase3({ gameState, hostPwd }) {
   const canvasRef = useRef(null);
   const vfxRef = useRef([]); 
 
-  // Hàm Dừng Game Sớm (Host Only)
   const handleForceEnd = async () => {
     let pwd = hostPwd;
     if (pwd !== 'dev123') {
@@ -408,8 +440,8 @@ function Phase3({ gameState, hostPwd }) {
           for (let i = 0; i < 10; i++) {
             vfxRef.current.push({
               type: 'blood', 
-              x: ev.x + (Math.random() - 0.5) * 20, 
-              y: ev.y + (Math.random() - 0.5) * 20, 
+              x: ev.x + (Math.random() - 0.5) * 30, 
+              y: ev.y + (Math.random() - 0.5) * 30, 
               vx: (Math.random() - 0.5) * 15, 
               vy: (Math.random() - 0.5) * 15, 
               life: 8 + Math.random() * 5
@@ -485,18 +517,19 @@ function Phase3({ gameState, hostPwd }) {
       }
     });
 
+    // ĐÃ FIX KÍCH THƯỚC: Thẻ Bài bự gấp rưỡi (100x110)
     Object.values(gameState.players).forEach(p => {
       if (!p.alive) {
         ctx.fillStyle = '#4B5563'; 
-        ctx.fillRect(p.x - 15, p.y - 15, 30, 30);
-        ctx.fillStyle = 'red'; ctx.font = '20px Arial'; ctx.textAlign = 'center';
-        ctx.fillText('❌', p.x, p.y + 7);
+        ctx.fillRect(p.x - 25, p.y - 25, 50, 50);
+        ctx.fillStyle = 'red'; ctx.font = '30px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('❌', p.x, p.y + 10);
         return;
       }
 
       const isBerserk = p.hp < 150;
-      const cardW = 70;
-      const cardH = 80;
+      const cardW = 100;
+      const cardH = 110;
       const cx = p.x - cardW / 2;
       const cy = p.y - cardH / 2;
 
@@ -507,19 +540,19 @@ function Phase3({ gameState, hostPwd }) {
       ctx.strokeRect(cx, cy, cardW, cardH);
 
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = 'bold 16px sans-serif'; // Tên to hơn
       ctx.textAlign = 'center';
       const shortName = p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name;
-      ctx.fillText(shortName, p.x, cy + 16);
+      ctx.fillText(shortName, p.x, cy + 22);
 
-      ctx.font = '22px sans-serif';
-      ctx.fillText(WEAPONS[p.weapon].e, p.x - 14, cy + 45);
-      ctx.fillText(SHIELDS[p.shield].e, p.x + 14, cy + 45);
+      ctx.font = '32px sans-serif'; // Emoji to hơn
+      ctx.fillText(WEAPONS[p.weapon].e, p.x - 20, cy + 60);
+      ctx.fillText(SHIELDS[p.shield].e, p.x + 20, cy + 60);
 
-      const hpBoxX = cx + 5;
-      const hpBoxY = cy + 58;
-      const hpBoxW = cardW - 10;
-      const hpBoxH = 12;
+      const hpBoxX = cx + 8;
+      const hpBoxY = cy + 80;
+      const hpBoxW = cardW - 16;
+      const hpBoxH = 16; // Thanh máu dày hơn
 
       ctx.fillStyle = '#111827';
       ctx.fillRect(hpBoxX, hpBoxY, hpBoxW, hpBoxH);
@@ -529,8 +562,8 @@ function Phase3({ gameState, hostPwd }) {
       ctx.fillRect(hpBoxX, hpBoxY, hpBoxW * hpPct, hpBoxH);
 
       ctx.fillStyle = 'white';
-      ctx.font = '9px sans-serif';
-      ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 9);
+      ctx.font = 'bold 12px sans-serif'; // Máu rõ hơn
+      ctx.fillText(`${Math.floor(p.hp)} HP`, p.x, hpBoxY + 12);
     });
 
     let activeVfx =[];
@@ -547,7 +580,7 @@ function Phase3({ gameState, hostPwd }) {
         if(v.weapon === 'spear') { slashColor = '59, 130, 246'; glowColor = '#3b82f6'; }
 
         ctx.strokeStyle = `rgba(${slashColor}, ${v.life / 6})`;
-        ctx.lineWidth = v.life * 2; 
+        ctx.lineWidth = v.life * 3; 
         ctx.shadowBlur = 15;
         ctx.shadowColor = glowColor;
         ctx.stroke();
@@ -555,7 +588,7 @@ function Phase3({ gameState, hostPwd }) {
       } 
       else if (v.type === 'blood') {
         ctx.beginPath();
-        ctx.arc(v.x, v.y, v.life / 2, 0, Math.PI*2); 
+        ctx.arc(v.x, v.y, v.life / 1.5, 0, Math.PI*2); 
         ctx.fillStyle = `rgba(220, 38, 38, ${v.life / 10})`; 
         ctx.fill();
         v.x += v.vx;
