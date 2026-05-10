@@ -7,6 +7,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
@@ -24,13 +26,13 @@ CONFIG_FILE = os.path.join(DATA_DIR, "game_config.json")
 DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
 
 TARGET_NAMES = {"nearest": "Người Đá Gần Nhất", "lowest_hp": "Bắt Nạt Kẻ Yếu", "tankiest": "Thử Thách Độ Trâu", "counter": "Gọt Mộc Tìm Khắc Hệ"}
-CAMP_NAMES = {"attack": "Nhiệt Huyết Tuổi Trẻ", "top5": "Bảo Toàn Lực Lượng (Top 5)", "top3": "Nằm Im Chờ Thời (Top 3)", "top2": "Nhẫn Nhịn Tới Cùng (Top 2)"}
+CAMP_NAMES = {"attack": "Nhiệt Huyết Tuổi Trẻ", "top5": "Bảo Toàn Lực Lượng", "top3": "Nằm Im Chờ Thời", "top2": "Nhẫn Nhịn Tới Cùng"}
 
 class GameState:
     def __init__(self):
         self.phase = "waiting"
         self.config = {
-            "room_name": "Trận Chiến Sinh Tồn", 
+            "room_name": "Giải Đấu Cờ Nhân Phẩm", 
             "map_width": 2000, 
             "map_height": 2000, 
             "bg_color": "#052e16", 
@@ -164,7 +166,7 @@ def set_phase(phase: str):
     elif phase == "reveal": game_state.reveal_timer = 25
     elif phase == "playing":
         game_state.logs = []
-        game_state.add_log("🎤 Trận đấu nội bộ xin phép được bắt đầu! Quẩy lên!", "🎤 Let the battle begin!")
+        game_state.add_log("🎤 Trận đấu nội bộ giao lưu học hỏi xin phép được bắt đầu!", "🎤 Let the battle begin!")
         game_state.projectiles = []; game_state.ticks = 0
         w, h = game_state.config["map_width"], game_state.config["map_height"]
         game_state.zone_x = w / 2; game_state.zone_y = h / 2
@@ -257,7 +259,7 @@ def update_game_logic():
 
     if game_state.ticks % 100 == 0:
         game_state.zone_target_radius = max(0, game_state.zone_target_radius - 75)
-        game_state.add_log("⚠️ Bo thu! Nhấc giò lên chạy lẹ bà con ơi!", "⚠️ The Red Zone is shrinking!")
+        game_state.add_log("⚠️ Chú ý! Vòng bo khí độc đang thu hẹp, xin quý khách vui lòng chạy lẹ!", "⚠️ The Red Zone is shrinking!")
 
     if game_state.zone_current_radius > game_state.zone_target_radius:
         game_state.zone_current_radius -= 2.0
@@ -265,7 +267,7 @@ def update_game_logic():
 
     if game_state.zone_current_radius <= 0 and len(game_state.bushes) > 0:
         game_state.bushes = []
-        game_state.add_log("🔥 Cháy rừng! Các Ninja rùa hết chỗ trốn rồi nha!", "🔥 All bushes burned!")
+        game_state.add_log("🔥 Cháy rừng rồi! Các 'Ninja Rùa' hết chỗ trốn, xin mời bước ra ánh sáng!", "🔥 All bushes burned!")
 
     drop_interval = 450 if game_state.zone_current_radius <= 50 else 150
     if game_state.ticks % drop_interval == 0 and len(game_state.airdrops) < 5 and game_state.zone_current_radius > 200:
@@ -273,7 +275,7 @@ def update_game_logic():
         drop_x = game_state.zone_x + random.randint(-safe_r, safe_r)
         drop_y = game_state.zone_y + random.randint(-safe_r, safe_r)
         game_state.airdrops.append({"x": drop_x, "y": drop_y})
-        game_state.add_log("🎁 Thính rơi! Ai nhân phẩm tốt thì vào xơi!", "🎁 An Airdrop has landed!")
+        game_state.add_log("🎁 Có thính rơi! Ai nhân phẩm tốt thì mời vào xơi nha!", "🎁 An Airdrop has landed!")
 
     new_projs = []
     for proj in game_state.projectiles:
@@ -287,12 +289,12 @@ def update_game_logic():
     if alive_count <= 1:
         if alive_count == 1:
             winner = alive_players[0]
-            game_state.add_log(f"🏆 Hết nấc! {winner['name']} đã vô địch xóm!", f"🏆 {winner['name']} won!")
+            game_state.add_log(f"🏆 HẾT NẤC! {winner['name']} đã quét sạch bản đồ và lên ngôi vô địch!", f"🏆 {winner['name']} won!")
             game_state.events.append({"type": "win"})
         game_state.phase = "finished"
         return
 
-    # --- BÌNH LUẬN VIÊN AI (NGẮN GỌN & HÀI HƯỚC) ---
+    # --- BÌNH LUẬN VIÊN AI CHÂM BIẾM ---
     if game_state.ticks % 60 == 0 and random.random() < 0.6 and alive_count > 1:
         cp = random.choice(alive_players)
         comment_vi = ""
@@ -300,19 +302,19 @@ def update_game_logic():
         cp_outside = d_to_z > game_state.zone_current_radius
         
         if cp_outside and cp["in_bush"]:
-            comment_vi = f"🎤 Bo cắn tụt quần mà {cp['name']} vẫn ngồi thiền. Quá cứng!"
+            comment_vi = f"🎤 Bo cắn tụt quần rồi mà {cp['name']} vẫn ngoan cố ngồi thiền trong bụi cỏ. Thật là cứng đầu!"
         elif cp_outside:
-            comment_vi = f"🎤 {cp['name']} đang cắm đầu chạy bo sấp mặt!"
+            comment_vi = f"🎤 Nhìn kìa! {cp['name']} đang cắm đầu chạy bo sấp mặt, mồ hôi ướt đẫm áo luôn rồi!"
         elif cp["in_bush"] and cp["camp_rule"] != "attack":
-            comment_vi = f"🎤 {cp['name']} hóa kiếp Ninja Rùa. Im lìm đến đáng sợ!"
+            comment_vi = f"🎤 {cp['name']} đang hòa mình vào thiên nhiên. Ninja bụi cỏ đi làm văn phòng là đây!"
         elif cp["camp_rule"] == "attack":
-            comment_vi = f"🎤 {cp['name']} đánh khét thật, y như đang chạy KPI cuối tháng!"
+            comment_vi = f"🎤 {cp['name']} đánh khét thật đấy, càn quét khắp bản đồ y như đang chạy KPI cuối tháng vậy!"
         elif cp["target_rule"] == "lowest_hp":
-            comment_vi = f"🎤 Khôn như {cp['name']}! Toàn me mấy tay yếu máu để KS."
+            comment_vi = f"🎤 Khôn như {cp['name']}! Toàn me mấy người yếu máu để KS mạng, quá sức tính toán."
         elif cp["target_rule"] == "tankiest":
-            comment_vi = f"🎤 {cp['name']} cứ thấy ai máu trâu là lao vào đấm. Liều!"
+            comment_vi = f"🎤 Điếc không sợ súng! {cp['name']} cứ thấy ai máu trâu là lao vào đấm, tinh thần thép thật."
         elif cp["target_rule"] == "counter":
-            comment_vi = f"🎤 {cp['name']} não to! Cầm dao đi gọt mộc là có thật!"
+            comment_vi = f"🎤 {cp['name']} đang chứng minh IQ vô cực! Lượn lờ cẩn thận tìm mục tiêu bị mình khắc hệ."
         
         if comment_vi:
             game_state.add_log(comment_vi, "🎤 Tactical play going on!")
@@ -342,7 +344,7 @@ def update_game_logic():
                 p["hp"] = min(p["max_hp"], p["hp"] + 150)
                 p["heals_looted"] += 1
                 game_state.events.append({"type": "heal", "x": p["x"], "y": p["y"], "text": "+150 HP"})
-                game_state.add_log(f"💉 Bơm máu kịp thời! {p['name']} nạp VIP đầy bình quẩy tiếp!", f"💉 {p['name']} healed!")
+                game_state.add_log(f"💉 Bơm máu kịp thời! {p['name']} nạp đầy bình chuẩn bị quẩy tiếp!", f"💉 {p['name']} healed!")
                 healed = True; p["angry_ticks"] = 0 
             else:
                 new_airdrops.append(drop)
@@ -357,7 +359,7 @@ def update_game_logic():
 
         if p["hp"] <= 0:
             p["hp"] = 0; p["alive"] = False
-            game_state.add_log(f"☠️ Cạn lời! {p['name']} chết ngạt ngoài bo!", f"☠️ {p['name']} died to zone!")
+            game_state.add_log(f"☠️ Cạn lời! {p['name']} mải mê hái hoa ngoài vòng bo và cái kết bay màu!", f"☠️ {p['name']} died to zone!")
             game_state.events.append({"type": "death"})
             continue
 
@@ -410,6 +412,7 @@ def update_game_logic():
         if panic_zone:
             zx, zy, zdist = calc_dist(p["x"], p["y"], game_state.zone_x, game_state.zone_y)
             vx += (zx/zdist) * base_speed * 1.8; vy += (zy/zdist) * base_speed * 1.8
+            
             if nearest_enemy and dist_to_enemy < w_data["max_rng"] * 0.8:
                 ex, ey, edist = calc_dist(p["x"], p["y"], nearest_enemy["x"], nearest_enemy["y"])
                 vx -= (ex/edist) * base_speed * 1.5; vy -= (ey/edist) * base_speed * 1.5
@@ -500,11 +503,11 @@ def update_game_logic():
                     if p["weapon"] in ["sword", "hammer"]: actual_target["x"] += (ax/adist) * (10 if p["weapon"] == "sword" else 25); actual_target["y"] += (ay/adist) * (10 if p["weapon"] == "sword" else 25)
 
                     if is_crit: 
-                        game_state.add_log(f"💥 Bạo kích! {p['name']} đấm {actual_target['name']} bay {int(final_dmg)} máu!", f"💥 Crit! {p['name']} hits {int(final_dmg)}!")
+                        game_state.add_log(f"💥 Bạo kích! {p['name']} gõ trúng đầu {actual_target['name']} bay luôn {int(final_dmg)} máu!", f"💥 Crit! {p['name']} hits {int(final_dmg)}!")
                     if actual_target["hp"] <= 0:
                         actual_target["hp"] = 0; actual_target["alive"] = False; p["kills"] += 1; p["killed_names"].append(actual_target["name"])
                         game_state.events.append({"type": "death"})
-                        game_state.add_log(f"💀 Xong phim! {actual_target['name']} bị {p['name']} đấm đăng xuất!", f"💀 {p['name']} killed {actual_target['name']}!")
+                        game_state.add_log(f"💀 Xong phim! {actual_target['name']} đã bị {p['name']} tiễn ra chuồng gà!", f"💀 {p['name']} killed {actual_target['name']}!")
 
         p["x"] += vx; p["y"] += vy
         if p["x"] < 20: p["x"] = 20; p["wander_angle"] = math.pi - p["wander_angle"]
@@ -521,3 +524,12 @@ async def game_loop():
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(game_loop())
+
+# --- DÀNH CHO VIỆC DEPLOY LÊN RENDER/VERCEL ---
+# Trả file index.html của React khi gõ URL từ trình duyệt
+if os.path.exists("dist"):
+    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+    @app.get("/{catchall:path}")
+    def serve_react_app(catchall: str):
+        return FileResponse("dist/index.html")
