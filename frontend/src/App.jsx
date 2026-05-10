@@ -363,7 +363,7 @@ function Phase1({ gameState, hostPwd, setHostPwd }) {
       <div className="bg-gray-800 p-4 md:p-6 rounded-lg border border-gray-700 h-fit shadow-xl">
         <h2 className="text-lg md:text-xl font-bold mb-4 text-purple-400">👑 Quyền Lực Host</h2>
         <label className="text-xs md:text-sm font-semibold text-gray-400 block mb-1">Mật khẩu Admin</label>
-        <input className="p-2 md:p-3 w-full bg-gray-700 rounded mb-4 outline-none text-sm md:text-base" placeholder="Nhập pass Host (dev123)" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
+        <input className="p-2 md:p-3 w-full bg-gray-700 rounded mb-4 outline-none text-sm md:text-base" placeholder="Nhập pass Host" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === 'dev123' && (
           <div className="flex flex-col gap-3 animate-fade-in border-t border-gray-700 pt-4 text-xs md:text-sm">
