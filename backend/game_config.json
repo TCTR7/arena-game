@@ -1,0 +1,107 @@
+{
+    "weapons": {
+        "dagger": {
+            "name": "Phi dao",
+            "icon": "🗡️",
+            "color": "#94a3b8",
+            "min_rng": 40,
+            "rng": 120,
+            "dmg": 14,
+            "cd": 0.4,
+            "wt": 0,
+            "vfx": "throw",
+            "desc": "Phóng dao dích dắc, siêu lẹ."
+        },
+        "sword": {
+            "name": "Kiếm dài",
+            "icon": "🤺",
+            "color": "#ef4444",
+            "min_rng": 0,
+            "rng": 50,
+            "dmg": 25,
+            "cd": 1.0,
+            "wt": 15,
+            "vfx": "slash",
+            "desc": "Cận chiến cân bằng."
+        },
+        "spear": {
+            "name": "Trường giáo",
+            "icon": "🔱",
+            "color": "#f59e0b",
+            "min_rng": 35,
+            "rng": 90,
+            "dmg": 22,
+            "cd": 1.2,
+            "wt": 20,
+            "vfx": "thrust",
+            "desc": "Đâm thấu giáp từ xa."
+        },
+        "bow": {
+            "name": "Cung tiễn",
+            "icon": "🏹",
+            "color": "#22c55e",
+            "min_rng": 80,
+            "rng": 220,
+            "dmg": 18,
+            "cd": 0.8,
+            "wt": 10,
+            "vfx": "arrow",
+            "desc": "Thả diều, vô dụng với Khiên thép."
+        },
+        "hammer": {
+            "name": "Búa tạ",
+            "icon": "🔨",
+            "color": "#f97316",
+            "min_rng": 0,
+            "rng": 45,
+            "dmg": 65,
+            "cd": 2.2,
+            "wt": 40,
+            "vfx": "bash",
+            "desc": "Xáp lá cà đập nát mọi thứ."
+        }
+    },
+    "shields": {
+        "buckler": {
+            "name": "Khiên nhỏ",
+            "icon": "🥏",
+            "def": 5,
+            "wt": 2,
+            "desc": "Chạy cực nhanh."
+        },
+        "wood_shield": {
+            "name": "Khiên gỗ",
+            "icon": "🪵",
+            "def": 35,
+            "wt": 20,
+            "desc": "Phòng thủ ổn."
+        },
+        "steel_shield": {
+            "name": "Khiên thép",
+            "icon": "🛡️",
+            "def": 65,
+            "wt": 60,
+            "desc": "Kháng tên 100%, lết như rùa."
+        }
+    },
+    "synergies": {
+        "dagger": [
+            "wood_shield"
+        ],
+        "sword": [
+            "wood_shield",
+            "buckler"
+        ],
+        "spear": [
+            "steel_shield",
+            "buckler"
+        ],
+        "bow": [
+            "buckler",
+            "wood_shield"
+        ],
+        "hammer": [
+            "steel_shield"
+        ]
+    }
+}
