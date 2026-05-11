@@ -51,11 +51,13 @@ class SoundEngine {
 const sfx = new SoundEngine();
 
 class VoiceEngine {
-  constructor() { this.synth = window.speechSynthesis; this.muted = false; }
+  constructor() { this.synth = window.speechSynthesis; this.muted = false; this.unlocked = false; }
   init() {
-      if (this.synth) {
-          let dummy = new SpeechSynthesisUtterance('');
-          dummy.volume = 0; this.synth.speak(dummy);
+      if (this.synth && !this.unlocked) {
+          let dummy = new SpeechSynthesisUtterance(' ');
+          dummy.volume = 0; 
+          this.synth.speak(dummy);
+          this.unlocked = true;
       }
   }
   shout(type) {
@@ -208,6 +210,9 @@ function HomeScreen({ setRoomId, setInRoom, setGlobalHostPwd }) {
 
     const handleJoin = async (e) => {
         e.preventDefault();
+        // MỞ KHÓA ÂM THANH NGAY LẬP TỨC (KHÔNG CHỜ ĐỢI API)
+        sfx.init(); humanVoice.init(); 
+
         if(!joinId) return alert("Nhập mã phòng!");
         const res = await fetch(`${API_URL}/check_room/${joinId}`);
         const d = await res.json();
@@ -218,6 +223,9 @@ function HomeScreen({ setRoomId, setInRoom, setGlobalHostPwd }) {
 
     const handleCreate = async (e) => {
         e.preventDefault();
+        // MỞ KHÓA ÂM THANH NGAY LẬP TỨC
+        sfx.init(); humanVoice.init();
+
         if(!createId || !hostPwd) return alert("Nhập mã phòng và Pass Host!");
         const res = await fetch(`${API_URL}/create_room`, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
