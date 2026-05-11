@@ -18,40 +18,70 @@ const getVietnameseVoice = () => {
   return v || availableVoices.find(voice => voice.lang.includes('vi') || voice.name.toLowerCase().includes('vietnamese'));
 };
 
+// ==========================================
+// 1. SOUND ENGINE MỚI (DÙNG FILE MP3 THẬT)
+// ==========================================
 class SoundEngine {
-  constructor() { this.ctx = null; this.muted = false; }
-  init() {
-    if (!this.ctx) {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = this.ctx.createOscillator();
-        osc.connect(this.ctx.destination);
-        osc.start(0); osc.stop(0.001);
-    }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-  }
-  play(type, weapon = null) {
-    if (this.muted || !this.ctx || this.ctx.state === 'suspended') return;
-    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-    osc.connect(gain); gain.connect(this.ctx.destination);
-    const t = this.ctx.currentTime; 
+  constructor() { 
+    this.muted = false; 
     
-    if (type === 'attack') {
-      if (weapon === 'sword') { osc.type = 'square'; osc.frequency.setValueAtTime(1200, t); osc.frequency.exponentialRampToValueAtTime(400, t + 0.1); gain.gain.setValueAtTime(0.4, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.start(t); osc.stop(t + 0.1); const osc2 = this.ctx.createOscillator(); osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(800, t); osc2.frequency.exponentialRampToValueAtTime(200, t + 0.15); osc2.connect(gain); osc2.start(t); osc2.stop(t + 0.15); } 
-      else if (weapon === 'spear') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, t); osc.frequency.exponentialRampToValueAtTime(50, t + 0.15); gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15); } 
-      else if (weapon === 'dagger') { osc.type = 'sine'; osc.frequency.setValueAtTime(2000, t); osc.frequency.exponentialRampToValueAtTime(500, t + 0.08); gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.08); osc.start(t); osc.stop(t + 0.08); } 
-      else if (weapon === 'bow') { osc.type = 'triangle'; osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(100, t + 0.15); gain.gain.setValueAtTime(0.7, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15); } 
-      else if (weapon === 'hammer') { osc.type = 'square'; osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.35); gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35); osc.start(t); osc.stop(t + 0.35); }
-    } 
-    else if (type === 'death') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(30, t + 0.5); gain.gain.setValueAtTime(0.7, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5); osc.start(t); osc.stop(t + 0.5); }
-    else if (type === 'win') { osc.type = 'square'; [440, 554, 659].forEach((f, i) => osc.frequency.setValueAtTime(f, t + i * 0.15)); gain.gain.setValueAtTime(0.4, t); gain.gain.linearRampToValueAtTime(0, t + 1.2); osc.start(t); osc.stop(t + 1.2); }
-    else if (type === 'heal') { osc.type = 'sine'; osc.frequency.setValueAtTime(400, t); osc.frequency.linearRampToValueAtTime(1000, t + 0.3); gain.gain.setValueAtTime(0.4, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.3); osc.start(t); osc.stop(t + 0.3); }
-    else if (type === 'dodge') { osc.type = 'sine'; osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(300, t + 0.15); gain.gain.setValueAtTime(0.3, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.15); osc.start(t); osc.stop(t + 0.15); }
+    // Tải sẵn các file MP3 từ thư mục public/sounds/
+    this.sounds = {
+      sword: new Audio('/sounds/sword.mp3'),
+      spear: new Audio('/sounds/spear.mp3'),
+      dagger: new Audio('/sounds/dagger.mp3'),
+      bow: new Audio('/sounds/bow.mp3'),
+      hammer: new Audio('/sounds/hammer.mp3'),
+      dodge: new Audio('/sounds/dodge.mp3'),
+      heal: new Audio('/sounds/heal.mp3'),
+      death: new Audio('/sounds/death.mp3'),
+      win: new Audio('/sounds/win.mp3')
+    };
+  }
+  
+  init() {
+    // Mở khóa audio trên Mobile: Phát tất cả với volume = 0
+    Object.values(this.sounds).forEach(audio => {
+        audio.volume = 0; 
+        let playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => { 
+                audio.pause(); 
+                audio.currentTime = 0; 
+                audio.volume = 1; // Trả lại volume
+            }).catch(e => console.warn("Chưa unlock được audio:", e));
+        }
+    });
+  }
+  
+  play(type, weapon = null) {
+    if (this.muted) return;
+    
+    let targetSound;
+    if (type === 'attack' && weapon && this.sounds[weapon]) {
+        targetSound = this.sounds[weapon];
+    } else if (this.sounds[type]) {
+        targetSound = this.sounds[type];
+    }
+
+    if (targetSound) {
+        targetSound.currentTime = 0; // Tua lại đầu để phát liên tục
+        targetSound.volume = (type === 'death' || type === 'hammer') ? 0.9 : 0.6;
+        targetSound.play().catch(e => console.warn("Trình duyệt chặn audio:", e));
+    }
   }
 }
 const sfx = new SoundEngine();
 
+// ==========================================
+// 2. VOICE ENGINE (ĐÃ FIX LỖI UNLOCK)
+// ==========================================
 class VoiceEngine {
-  constructor() { this.synth = window.speechSynthesis; this.muted = false; this.unlocked = false; }
+  constructor() { 
+    this.synth = window.speechSynthesis; 
+    this.muted = false; 
+    this.unlocked = false; // Thêm cờ để chỉ lừa trình duyệt 1 lần
+  }
   init() {
       if (this.synth && !this.unlocked) {
           let dummy = new SpeechSynthesisUtterance(' ');
@@ -72,8 +102,13 @@ class VoiceEngine {
 }
 const humanVoice = new VoiceEngine();
 
+// ==========================================
+// 3. HÀM ĐỌC LOG (ĐÃ FIX LỖI ECHO 5 TAB)
+// ==========================================
 const speakLog = (text, langStr, muted) => {
-  if (muted || !window.speechSynthesis) return;
+  // Thêm document.hidden: Chỉ tab nào đang hiển thị trên màn hình mới được đọc
+  if (muted || !window.speechSynthesis || document.hidden) return;
+  
   const cleanText = text.replace(/🎙️|🏆|💀|🔥|⚡|☠️|⚠️|🎤|🎁|💉/g, '').replace(/\[.*?s\]/g, '').trim();
   if(!cleanText) return;
   
@@ -101,7 +136,6 @@ const getDynamicColors = (weapon, isOutsideZone) => {
 const TARGET_NAMES = { nearest: "Người Gần Nhất", lowest_hp: "Bắt Nạt Kẻ Yếu", tankiest: "Thử Thách Độ Trâu", counter: "Tìm Khắc Hệ" };
 const CAMP_NAMES = { attack: "Nhiệt Huyết", top5: "Bảo Toàn (Top 5)", top3: "Chờ Thời (Top 3)", top2: "Nhẫn Nhịn" };
 const AVATARS = ["🐘", "🐕", "🐈", "🐔", "🐢", "🐧", "🦖", "🐒", "🐯", "🐻", "👽", "👻", "🤡", "🤖"];
-
 const COLORS = ["#1e293b", "#7f1d1d", "#14532d", "#1e3a8a", "#581c87", "#9f1239", "#b45309", "#064e3b", "#0f766e"];
 
 export default function App() {
@@ -210,7 +244,7 @@ function HomeScreen({ setRoomId, setInRoom, setGlobalHostPwd }) {
 
     const handleJoin = async (e) => {
         e.preventDefault();
-        // MỞ KHÓA ÂM THANH NGAY LẬP TỨC (KHÔNG CHỜ ĐỢI API)
+        // Cú lừa trình duyệt: Unlock âm thanh ngay tại đây
         sfx.init(); humanVoice.init(); 
 
         if(!joinId) return alert("Nhập mã phòng!");
@@ -223,7 +257,6 @@ function HomeScreen({ setRoomId, setInRoom, setGlobalHostPwd }) {
 
     const handleCreate = async (e) => {
         e.preventDefault();
-        // MỞ KHÓA ÂM THANH NGAY LẬP TỨC
         sfx.init(); humanVoice.init();
 
         if(!createId || !hostPwd) return alert("Nhập mã phòng và Pass Host!");
