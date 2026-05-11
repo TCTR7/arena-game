@@ -549,6 +549,9 @@ async def startup_event():
 
 if os.path.exists("dist"):
     app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+    if os.path.exists("dist/sounds"):
+        app.mount("/sounds", StaticFiles(directory="dist/sounds"), name="sounds")
+
     @app.get("/{catchall:path}")
     def serve_react_app(catchall: str):
         return FileResponse("dist/index.html")
