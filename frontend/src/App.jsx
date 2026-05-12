@@ -428,7 +428,7 @@ function Phase1({ roomId, gameState, hostPwd, setHostPwd }) {
       </div>
 
       <div className="bg-gray-800 p-4 md:p-6 rounded-2xl border border-gray-700 h-fit shadow-xl">
-        <h2 className="text-lg md:text-xl font-black mb-4 text-purple-400">👑 Quyền Lực Host</h2>
+        <h2 className="text-lg md:text-xl font-black mb-4 text-purple-400">👑 Host</h2>
         <input className="p-2 md:p-3 w-full bg-gray-700 border border-gray-600 rounded mb-4 outline-none text-sm md:text-base focus:border-purple-500" placeholder="Nhập pass Host của phòng" type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)} />
         
         {hostPwd === gameState.host_pwd && (
